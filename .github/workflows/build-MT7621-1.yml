@@ -53,14 +53,14 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # ХИТРОСТЬ: Внедряем автонажатие Enter прямо внутрь Makefile ядра, перехватив silentoldconfig
-        # Это заставит ядро автоматически соглашаться со всеми новыми пунктами (ROAMING_ENHANCE_SUPPORT и др.)
-        sed -i 's/silentoldconfig/oldconfig/g' Makefile
-        sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
+        # Предварительно и безопасно прожимаем скрытый silentoldconfig, чтобы ядро само создало файл autoconf.h
         cp -f configs/boards/K2P-USB/kernel-3.4.x-5.0.config linux-3.4.x/.config
+        cd linux-3.4.x
+        yes "" | make ARCH=mips CROSS_COMPILE=${CONFIG_TOOLCHAIN_DIR}/toolchain-3.4.x/bin/mipsel-linux-uclibc- silentoldconfig
+        cd ..
         
-        # Запускаем сборку, прокидывая автоматические ответы "yes" через консольное окружение
-        sudo KCONFIG_NOSILENTUPDATE=1 sh -c 'yes "" | ./build_firmware_modify K2P-USB 0'
+        # Запускаем штатную компиляцию всей прошивки
+        sudo sh -c 'yes "" | ./build_firmware_modify K2P-USB 0'
         
         sudo mv -f images/*.trx /opt/images/
 
