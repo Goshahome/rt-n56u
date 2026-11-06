@@ -32,15 +32,14 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
-        # Заставляем систему считать папку ядра родной linux-3.4.x
+        # Настройка путей под структуру каталогов
         sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" \
           configs/templates/K2P-USB.config
           
-        # Заставляем систему использовать базовый конфиг ядра
         sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x.config"/g' \
           configs/templates/K2P-USB.config
           
-        # Полностью и безопасно вырезаем блок сборки GO из Makefile утилит
+        # Безопасно вырезаем блок сборки GO из Makefile
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
@@ -52,12 +51,8 @@ jobs:
         cp -f configs/templates/K2P-USB.config .config
         sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
         
-        # Подсовываем наш конфиг в папку ядра и автоматически прожимаем дефолтные ответы на новые вопросы по ext4
-        cp -f configs/boards/K2P-USB/kernel-3.4.x.config linux-3.4.x/.config
-        yes "" | make -C linux-3.4.x oldconfig
-        
-        # Запускаем компиляцию, используя утилиту автоматических ответов yes, чтобы пройти любые скрытые интерактивные запросы ядра
-        sudo -E sh -c 'yes "" | ./build_firmware_modify K2P-USB 0'
+        # Чистый запуск компиляции
+        sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
 
