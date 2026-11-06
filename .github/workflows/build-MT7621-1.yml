@@ -40,12 +40,6 @@ jobs:
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # Вшиваем ответы на скрытые вопросы Wi-Fi прямо в файл конфигурации ядра 4.4
-        # Это полностью предотвратит ошибку "RADIO_LINK_SELECTION ... aborted!"
-        echo "CONFIG_RADIO_LINK_SELECTION=y" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
-        echo "CONFIG_DOT11K_RRM_SUPPORT=n" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
-        echo "CONFIG_GPIO_CONTROL_SUPPORT=y" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
-        
         if [ ! -f configs/templates/K2P-USB.config ] ; then
           echo "Config for K2P-USB not found!"
           exit 1
@@ -59,8 +53,14 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Запускаем сборку
-        sudo ./build_firmware_modify K2P-USB 0
+        # ХИТРОСТЬ: Внедряем автонажатие Enter прямо внутрь Makefile ядра, перехватив silentoldconfig
+        # Это заставит ядро автоматически соглашаться со всеми новыми пунктами (ROAMING_ENHANCE_SUPPORT и др.)
+        sed -i 's/silentoldconfig/oldconfig/g' Makefile
+        sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
+        cp -f configs/boards/K2P-USB/kernel-3.4.x-5.0.config linux-3.4.x/.config
+        
+        # Запускаем сборку, прокидывая автоматические ответы "yes" через консольное окружение
+        sudo KCONFIG_NOSILENTUPDATE=1 sh -c 'yes "" | ./build_firmware_modify K2P-USB 0'
         
         sudo mv -f images/*.trx /opt/images/
 
