@@ -42,7 +42,7 @@ jobs:
         sudo mv -f images/*.trx /opt/images/
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Padavan_K2P-USB
         path: /opt/images/*.trx
