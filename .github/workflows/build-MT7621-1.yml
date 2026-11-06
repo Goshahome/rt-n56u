@@ -32,7 +32,7 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
-        # Заставляем систему считать папку ядра родной linux-3.4.x
+        # Настройка путей под структуру родного ядра k2p
         sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
         sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x-5.0.config"/g' configs/templates/K2P-USB.config
         
@@ -56,7 +56,7 @@ jobs:
         # Запускаем сборку оригинального стабильного профиля K2P-USB
         sudo ./build_firmware_modify K2P-USB 0
         
-        # Переименовываем готовый скомпилированный файл под паспорт вашего роутера
+        # Переименовываем готовый файл под паспорт вашего роутера перед упаковкой
         cd images
         for file in *.trx; do
           if [ -f "$file" ]; then
