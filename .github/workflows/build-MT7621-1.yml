@@ -53,19 +53,14 @@ jobs:
         mv configs/boards/K2P-USB configs/boards/SMBXTURBO
         mv configs/boards/SMBXTURBO/kernel-3.4.x-5.0.config configs/boards/SMBXTURBO/kernel-3.4.x.config
         
-        # Отключаем интерактивность конфигуратора старого ядра
-        cp -f configs/boards/SMBXTURBO/kernel-3.4.x.config linux-3.4.x/.config
-        sed -i 's/silentoldconfig/oldconfig/g' Makefile
-        sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
-        
-        # УЛЬТРА-МАГИЯ: Убиваем генератор кривых версий Git, заменяя его пустышкой
-        # Это навсегда уберет ломающий текст "Error: kernelrelease not valid"
+        # УЛЬТРА-МАГИЯ: Очищаем генератор кривых версий Git, заменяя его пустышкой
+        # Это убирает ошибку "kernelrelease not valid" и укладывает строку в лимит 64 символа
         echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Запускаем сборку
-        sudo KCONFIG_NOSILENTUPDATE=1- sh -c 'yes "" | ./build_firmware_modify SMBXTURBO 0'
+        # Запускаем сборку в штатном режиме (silentoldconfig сгенерирует autoconf.h автоматически)
+        sudo KCONFIG_NOSILENTUPDATE=1- ./build_firmware_modify SMBXTURBO 0
         
         sudo mv -f images/*.trx /opt/images/
 
