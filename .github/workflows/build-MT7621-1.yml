@@ -8,8 +8,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - name: Checkout custom toolchain
+      run: |
+        # Скачиваем чистый репозиторий от sereja8
+        git clone --depth=1 https://github.com rt-n56u
+        mkdir -p /opt/images/
 
     - name: Initialization environment
       env:
@@ -20,53 +23,42 @@ jobs:
         cpio git python3-docutils gettext automake autopoint texinfo build-essential help2man \
         pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
 
-    - name: Clone source code
+    - name: Prepare Toolchain
       run: |
-        cd toolchain-mipsel
+        cd rt-n56u/toolchain-mipsel
         sh dl_toolchain.sh
-        mkdir -p /opt/images/
 
     - name: Build Firmware
       run: |
-        cwd=`pwd`
-        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
-        cd trunk
+        cd rt-n56u/trunk
         
-        # Настройка путей под структуру репозитория (ядро 4.4 зашито внутри папки linux-3.4.x)
-        sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
-        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x-5.0.config"/g' configs/templates/K2P-USB.config
-        
-        # Полностью вырезаем упавший пакет GO из Makefile утилит
+        # Полностью очищаем софт от упавшего Go, который нам не нужен
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        if [ ! -f configs/templates/K2P-USB.config ] ; then
-          echo "Config for K2P-USB not found!"
-          exit 1
-        fi
+        # Накатываем заводской профиль конфигурации Смартбокса
+        cp -f configs/templates/SMBXTURBO.config .config
         
-        cp -f configs/templates/K2P-USB.config .config
+        # Передаем путь к компилятору
+        cwd=`pwd`
+        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/..\\/toolchain-mipsel
         sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
         
         # Заглушка кривых версий Git (убирает ошибку превышения 64 символов)
-        echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
-        echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
-        chmod +x linux-3.4.x/scripts/setlocalversion
+        echo '#!/bin/sh' > linux-4.4.x/scripts/setlocalversion || echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
+        echo 'echo ""' >> linux-4.4.x/scripts/setlocalversion || echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
+        chmod +x linux-4.4.x/scripts/setlocalversion || chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # ДВУХЭТАПНАЯ МАГИЯ KCONFIG: 
-        # 1. Сначала через oldnoconfig тихо генерируем файл .config без интерактивных вопросов
-        # 2. Затем через silentoldconfig заставляем ядро создать недостающий autoconf.h
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
+        # Перехватываем проверку старого Kconfig под автоматические ответы
+        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-4.4.x/scripts/kconfig/Makefile || sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
         
-        # Запускаем сборку
-        sudo ./build_firmware_modify K2P-USB 1
+        # Запускаем сборку РОДНОГО профиля Смартбокса под Breed (цифра 0)
+        sudo ./build_firmware_modify SMBXTURBO 0
         
         sudo mv -f images/*.trx /opt/images/
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Padavan_K2P-USB
+        name: Padavan_SmartBox_Turbo_Sereja8
         path: /opt/images/*.trx
