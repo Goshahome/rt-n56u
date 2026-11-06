@@ -10,7 +10,7 @@ jobs:
     steps:
     - name: Checkout custom toolchain from GitLab
       run: |
-        # Скачиваем чистый и открытый репозиторий падаванов нового поколения от sereja8 с GitLab
+        # Скачиваем чистый репозиторий от sereja8 с GitLab
         git clone --depth=1 https://gitlab.com/hadzhioglu/padavan-ng.git padavan-ng
         mkdir -p /opt/images/
 
@@ -27,15 +27,12 @@ jobs:
       run: |
         cd padavan-ng/trunk
         
+        # Автоматически генерируем компилятор встроенными средствами padavan-ng перед стартом
+        ./build_toolchain
+        
         # Полностью очищаем софт от упавшего Go, который нам не нужен
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
-        
-        # Накатываем РОДНОЙ и ОФИЦИАЛЬНЫЙ профиль конфигурации вашего Смартбокса
-        cp -f configs/templates/SMBXTURBO.config .config
-        
-        # Автоматически генерируем компилятор встроенными средствами padavan-ng перед стартом
-        ./build_toolchain
         
         # Заглушка кривых версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-4.4.x/scripts/setlocalversion || echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
@@ -45,7 +42,7 @@ jobs:
         # Автоматический обход интерактивных вопросов Kconfig
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-4.4.x/scripts/kconfig/Makefile || sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
         
-        # Запускаем сборку родного профиля Смартбокса (под Breed, цифра 0)
+        # Запускаем сборку родного профиля Смартбокса (скрипт сам найдет и скопирует нужный шаблон)
         sudo ./build_firmware_modify SMBXTURBO 0
         
         sudo mv -f images/*.trx /opt/images/
@@ -55,4 +52,3 @@ jobs:
       with:
         name: Padavan_SmartBox_Turbo_Plus_New_NG
         path: /opt/images/*.trx
- 
