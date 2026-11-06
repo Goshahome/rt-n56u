@@ -1,44 +1,14 @@
-name: Build MT7621-1
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
-        cpio git python3-docutils gettext automake autopoint texinfo build-essential help2man \
-        pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
-
-    - name: Clone source code
-      run: |
-        cd toolchain-mipsel
-        sh dl_toolchain.sh
-        mkdir -p /opt/images/
-
     - name: Build Firmware
       run: |
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
-        # Настройка путей под структуру каталогов
-        sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" \
-          configs/templates/K2P-USB.config
-          
-        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x.config"/g' \
-          configs/templates/K2P-USB.config
-          
+        # Меняем разметку и имя устройства на родные для Smart Box Turbo+
+        sed -i 's/^CONFIG_FIRMWARE_PRODUCT_ID=.*$/CONFIG_FIRMWARE_PRODUCT_ID="SMBXTURBO"/g' configs/templates/K2P-USB.config
+        sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
+        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x.config"/g' configs/templates/K2P-USB.config
+        
         # Безопасно вырезаем блок сборки GO из Makefile
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
@@ -51,13 +21,11 @@ jobs:
         cp -f configs/templates/K2P-USB.config .config
         sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
         
-        # Чистый запуск компиляции
-        sudo ./build_firmware_modify K2P-USB 0
+        # Переименовываем профиль сборки под разметку Смартбокса
+        mv configs/boards/K2P-USB configs/boards/SMBXTURBO
         
+        # Переименовываем файл конфига ядра внутри папки, убирая приписку -5.0
+        mv configs/boards/SMBXTURBO/kernel-3.4.x-5.0.config configs/boards/SMBXTURBO/kernel-3.4.x.config
+        
+        sudo ./build_firmware_modify SMBXTURBO 0
         sudo mv -f images/*.trx /opt/images/
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Padavan_K2P-USB
-        path: /opt/images/*.trx
