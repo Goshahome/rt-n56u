@@ -58,12 +58,9 @@ jobs:
         sed -i 's/silentoldconfig/oldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
         
-        # МАГИЯ-2: Обрезаем длинную строку версии ядра, чтобы уложиться в 64 символа
-        sed -i 's/[-_]${FIRMWARE_PRODUCT_ID}//g' libs/build_version
-        echo "3.4.3.9" > libs/version.txt
-        
-        # Запускаем сборку
-        sudo KCONFIG_NOSILENTUPDATE=1- sh -c 'yes "" | ./build_firmware_modify SMBXTURBO 0'
+        # Запускаем сборку, принудительно задав короткую версию (блокирует ошибку 64 символов и не требует чтения файлов)
+        export BUILD_VERSION="1.0"
+        sudo -E KCONFIG_NOSILENTUPDATE=1- sh -c 'yes "" | ./build_firmware_modify SMBXTURBO 0'
         
         sudo mv -f images/*.trx /opt/images/
 
