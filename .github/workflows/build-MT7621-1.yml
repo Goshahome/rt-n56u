@@ -53,18 +53,31 @@ jobs:
         mv configs/boards/K2P-USB configs/boards/SMBXTURBO
         mv configs/boards/SMBXTURBO/kernel-3.4.x-5.0.config configs/boards/SMBXTURBO/kernel-3.4.x.config
         
-        # Очищаем генератор кривых версий Git, заменяя его пустышкой (убирает лимит 64 символов)
+        # Заглушка кривых версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Переносим конфиг и ПРИНУДИТЕЛЬНО прожимаем дефолтные ответы на новые вопросы через silentoldconfig
-        cp -f configs/boards/SMBXTURBO/kernel-3.4.x.config linux-3.4.x/.config
-        cd linux-3.4.x
-        yes "" | make ARCH=mips CROSS_COMPILE=${CONFIG_TOOLCHAIN_DIR}/toolchain-3.4.x/bin/mipsel-linux-uclibc- silentoldconfig
-        cd ..
+        # ВШИВАЕМ ОТВЕТЫ НА ВСЕ СКРЫТЫЕ ВОПРОСЫ WI-FI И ЯДРА ПРЯМО В ФАЙЛ КОНФИГУРАЦИИ
+        # Теперь ядро увидит готовые параметры и проскочит опрос без единого вылета!
+        echo "CONFIG_RADIO_LINK_SELECTION=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_DOT11K_RRM_SUPPORT=n" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_EXT4_USE_FOR_EXT23=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_GPIO_CONTROL_SUPPORT=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_APCLI_SUPPORT=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_APCLI_CERT_SUPPORT=n" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_MAC_REPEATER_SUPPORT=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_MWDS=n" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_MUMIMO_SUPPORT=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_MU_RA_SUPPORT=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_DOT11R_FT_SUPPORT=n" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_CFG80211_SUPPORT=n" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_DSCP_QOS_MAP_SUPPORT=n" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_MCAST_RATE_SPECIFIC=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_VOW_SUPPORT=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_BAND_STEERING=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
         
-        # Запускаем основную сборку прошивки
+        # Запускаем основную сборку прошивки (в абсолютно штатном режиме)
         sudo ./build_firmware_modify SMBXTURBO 0
         
         sudo mv -f images/*.trx /opt/images/
