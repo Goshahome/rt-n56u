@@ -26,11 +26,13 @@ jobs:
         sh dl_toolchain.sh
         mkdir -p /opt/images/
 
-    - name: Build Firmware
+    
+           - name: Build Firmware
       run: |
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
+        sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
         if [ ! -f configs/templates/K2P-USB.config ] ; then
           echo "Config for K2P-USB not found!"
           exit 1
@@ -40,6 +42,7 @@ jobs:
         sudo ./clear_tree_simple
         sudo ./build_firmware_modify K2P-USB 0
         sudo mv -f images/*.trx /opt/images/
+
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
