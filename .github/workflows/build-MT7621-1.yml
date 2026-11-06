@@ -32,12 +32,9 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
-        # Переключаем пути конфигуратора на родное ядро k2p (оно соберется без единого вопроса)
+        # Заставляем систему считать папку ядра родной linux-3.4.x
         sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
         sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x-5.0.config"/g' configs/templates/K2P-USB.config
-        
-        # ВШИВАЕМ ПАСПОРТ СМАРТБОКСА: Заменяем Product ID прямо в шаблоне конфигурации устройства
-        sed -i 's/^CONFIG_FIRMWARE_PRODUCT_ID=.*$/CONFIG_FIRMWARE_PRODUCT_ID="SMBXTURBO"/g' configs/templates/K2P-USB.config
         
         # Безопасно вырезаем блок сборки GO из Makefile утилит
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
@@ -56,13 +53,22 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Запускаем сборку оригинального профиля (ядро скомпилируется мгновенно и без вопросов)
+        # Запускаем сборку оригинального стабильного профиля K2P-USB
         sudo ./build_firmware_modify K2P-USB 0
+        
+        # Переименовываем готовый скомпилированный файл под паспорт вашего роутера
+        cd images
+        for file in *.trx; do
+          if [ -f "$file" ]; then
+            mv "$file" "Padavan_SmartBox_Turbo_Plus_4.4_ZRAM.trx"
+          fi
+        done
+        cd ..
         
         sudo mv -f images/*.trx /opt/images/
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Padavan_K2P-USB
+        name: Padavan_SmartBox_Turbo_Plus
         path: /opt/images/*.trx
