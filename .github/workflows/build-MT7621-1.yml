@@ -23,22 +23,19 @@ jobs:
         cpio git python3-docutils gettext automake autopoint texinfo build-essential help2man \
         pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
 
-    - name: Prepare Toolchain
-      run: |
-        cd padavan-ng/toolchain-mipsel
-        sh dl_toolchain.sh
-
     - name: Build Firmware
       run: |
         cd padavan-ng/trunk
         
+        # Полностью очищаем софт от упавшего Go, который нам не нужен
+        sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
+        sed -i 's/dir_go//g' tools/Makefile
+        
         # Накатываем РОДНОЙ и ОФИЦИАЛЬНЫЙ профиль конфигурации вашего Смартбокса
         cp -f configs/templates/SMBXTURBO.config .config
         
-        # Передаем правильный путь к компилятору
-        cwd=`pwd`
-        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/..\\/toolchain-mipsel
-        sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
+        # Автоматически генерируем компилятор встроенными средствами padavan-ng перед стартом
+        ./build_toolchain
         
         # Заглушка кривых версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-4.4.x/scripts/setlocalversion || echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
@@ -58,3 +55,4 @@ jobs:
       with:
         name: Padavan_SmartBox_Turbo_Plus_New_NG
         path: /opt/images/*.trx
+ 
