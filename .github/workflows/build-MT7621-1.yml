@@ -32,13 +32,17 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
-        # Обманываем компилятор: создаем пустую папку go, чтобы он не пытался качать архив из Google
-        mkdir -p tools/go/go
-        sed -i 's/tar zxfv.*//g' tools/Makefile
-        
-        # Исправляем нестыковки путей ядра на linux-3.4.x
-        sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
-        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x.config"/g' configs/templates/K2P-USB.config
+        # Заставляем систему считать папку ядра родной linux-3.4.x
+        sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" \
+          configs/templates/K2P-USB.config
+          
+        # Заставляем систему использовать базовый конфиг ядра
+        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x.config"/g' \
+          configs/templates/K2P-USB.config
+          
+        # Полностью и безопасно вырезаем блок сборки GO из Makefile утилит
+        sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
+        sed -i 's/dir_go//g' tools/Makefile
         
         if [ ! -f configs/templates/K2P-USB.config ] ; then
           echo "Config for K2P-USB not found!"
@@ -48,8 +52,12 @@ jobs:
         cp -f configs/templates/K2P-USB.config .config
         sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
         
-        sudo ./clear_tree_simple
+        # Принудительно генерируем старый конфиг ядра, автоматически отвечая "по умолчанию" на все новые вопросы по ext4
+        make -C linux-3.4.x oldconfig
+        
+        # Запускаем компиляцию без очистки дерева (исключает сброс конфигурации)
         sudo ./build_firmware_modify K2P-USB 0
+        
         sudo mv -f images/*.trx /opt/images/
 
     - name: Upload Artifact
