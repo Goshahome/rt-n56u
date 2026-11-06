@@ -32,6 +32,10 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
+        # ЖЕСТКОЕ ИСПРАВЛЕНИЕ КОНФЛИКТА ДРАЙВЕРА WI-FI
+        # Меняем вендора Ralink на MediaTek, чтобы убрать интерактивные вопросы ядра
+        sed -i 's/^CONFIG_VENDOR=.*$/CONFIG_VENDOR=MediaTek/g' configs/templates/K2P-USB.config
+        
         # Полностью очищаем Makefile утилит от упавшего пакета GO
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
@@ -49,7 +53,7 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Стабильный запуск компиляции без интерактивных опросов
+        # Стабильный запуск компиляции оригинального профиля K2P-USB
         sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
