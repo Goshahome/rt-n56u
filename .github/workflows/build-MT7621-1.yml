@@ -25,9 +25,10 @@ jobs:
 
     - name: Build Firmware
       run: |
-        # 1. ЗАХОДИМ В ПАПКУ TOOLCHAIN И ЗАПУСКАЕМ СБОРКУ КОМПИЛЯТОРА
+        # 1. ЗАХОДИМ В ПАПКУ TOOLCHAIN И ЗАПУСКАЕМ СБОРКУ КОМПИЛЯТОРА ЧЕРЕЗ ШТАТНЫЙ .SH СКРИПТ
         cd padavan-ng/toolchain
-        sh build_toolchain
+        sudo chmod +x build_toolchain.sh
+        ./build_toolchain.sh
         
         # 2. ПЕРЕХОДИМ В ПАПКУ TRUNK ДЛЯ СБОРКИ САМОЙ ПРОШИВКИ
         cd ../trunk
