@@ -32,7 +32,7 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
-        # Настройка путей под структуру репозитория (ядро 4.4 зашито внутри папки linux-3.4.x)
+        # Настройка путей под структуру репозитория 4.4
         sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
         sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x-5.0.config"/g' configs/templates/K2P-USB.config
         
@@ -53,12 +53,12 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # УЛЬТРА-МАГИЯ: Перехватываем вызов утилиты conf внутри ядра Linux.
-        # Мы заменяем интерактивный режим --silentoldconfig на автоматический --olddefconfig.
-        # Теперь ядро САМО молча пропишет заводские ответы по умолчанию на ВСЕ новые скрытые вопросы!
-        sed -i 's/--silentoldconfig/--olddefconfig/g' linux-3.4.x/scripts/kconfig/Makefile
+        # ИСПРАВЛЕННЫЙ ПЕРЕХВАТ: Принудительно переводим тихий опрос в режим авто-ответов по умолчанию
+        sed -i 's/silentoldconfig/olddefconfig/g' linux-3.4.x/scripts/kconfig/Makefile
+        sed -i 's/silentoldconfig/olddefconfig/g' Makefile
+        sed -i 's/silentoldconfig/olddefconfig/g' linux-3.4.x/Makefile
         
-        # Запускаем сборку оригинального стабильного профиля K2P-USB
+        # Запускаем сборку
         sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
