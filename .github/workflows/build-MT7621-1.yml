@@ -52,11 +52,12 @@ jobs:
         cp -f configs/templates/K2P-USB.config .config
         sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
         
-        # Принудительно генерируем старый конфиг ядра, автоматически отвечая "по умолчанию" на все новые вопросы по ext4
-        make -C linux-3.4.x oldconfig
+        # Подсовываем наш конфиг в папку ядра и автоматически прожимаем дефолтные ответы на новые вопросы по ext4
+        cp -f configs/boards/K2P-USB/kernel-3.4.x.config linux-3.4.x/.config
+        yes "" | make -C linux-3.4.x oldconfig
         
-        # Запускаем компиляцию без очистки дерева (исключает сброс конфигурации)
-        sudo ./build_firmware_modify K2P-USB 0
+        # Запускаем компиляцию, используя утилиту автоматических ответов yes, чтобы пройти любые скрытые интерактивные запросы ядра
+        sudo -E sh -c 'yes "" | ./build_firmware_modify K2P-USB 0'
         
         sudo mv -f images/*.trx /opt/images/
 
