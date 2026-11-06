@@ -53,13 +53,14 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # РАДИКАЛЬНОЕ РЕШЕНИЕ: Подменяем вызов интерактивногоsilentoldconfig на пустую команду true
-        # Это полностью отрубает опрос ядра и заставляет компилятор сразу перейти к сборке файлов
-        sed -i 's/silentoldconfig/true/g' Makefile
-        sed -i 's/silentoldconfig/true/g' linux-3.4.x/Makefile
+        # МАГИЯ: Принудительно генерируем файлы конфигурации ядра, скармливая автоматический Enter
         cp -f configs/boards/K2P-USB/kernel-3.4.x-5.0.config linux-3.4.x/.config
+        cd linux-3.4.x
+        yes "" | make ARCH=mips CROSS_COMPILE=${CONFIG_TOOLCHAIN_DIR}/toolchain-3.4.x/bin/mipsel-linux-uclibc- oldconfig
+        yes "" | make ARCH=mips CROSS_COMPILE=${CONFIG_TOOLCHAIN_DIR}/toolchain-3.4.x/bin/mipsel-linux-uclibc- silentoldconfig
+        cd ..
         
-        # Запускаем сборку прошивки
+        # Запускаем сборку всей прошивки в чистом виде
         sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
