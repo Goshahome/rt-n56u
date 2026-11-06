@@ -58,10 +58,9 @@ jobs:
         sed -i 's/silentoldconfig/oldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
         
-        # ЖЕЛЕЗОБЕТОННО: Принудительно очищаем строку суффикса версии в самом Makefile ядра Linux
-        # Это полностью сотрет длинную ломающую приписку "3.4.113Error..."
-        sed -i 's/^EXTRAVERSION =.*/EXTRAVERSION =/g' linux-3.4.x/Makefile
-        sed -i 's/^LOCALVERSION =.*/LOCALVERSION =/g' linux-3.4.x/Makefile
+        # УЛЬТРА-МАГИЯ: Вырезаем саму проверку на превышение длины 64 символов в Makefile ядра!
+        # Мы просто удаляем ломающий блок проверки длины строки "exceeds 64 characters" на корню
+        sed -i '/@if \[ `echo -n \$\$(KERNELRELEASE) | wc -c` -gt 64 \]; then/,/fi/d' linux-3.4.x/Makefile
         
         # Запускаем сборку
         sudo KCONFIG_NOSILENTUPDATE=1- sh -c 'yes "" | ./build_firmware_modify SMBXTURBO 0'
