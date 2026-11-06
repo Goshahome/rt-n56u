@@ -1,4 +1,4 @@
-nname: Build MT7621-1
+name: Build MT7621-1
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # ЖЕЛЕЗОБЕТОННО: Вшиваем ответы на скрытые вопросы Wi-Fi прямо в файл конфигурации ядра 4.4
+        # Вшиваем ответы на скрытые вопросы Wi-Fi прямо в файл конфигурации ядра 4.4
         # Это полностью предотвратит ошибку "RADIO_LINK_SELECTION ... aborted!"
         echo "CONFIG_RADIO_LINK_SELECTION=y" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
         echo "CONFIG_DOT11K_RRM_SUPPORT=n" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
@@ -63,13 +63,6 @@ jobs:
         sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Padavan_K2P-USB
-        path: /opt/images/*.trx
-
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
