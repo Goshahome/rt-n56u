@@ -40,6 +40,13 @@ jobs:
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
+        # ВШИВАЕМ ОТВЕТЫ НА СКРЫТЫЕ ВОПРОСЫ WI-FI ПРЯМО В КОНФИГ КОРНЯ ЯДРА
+        # Теперь у ядра физически не останется причин открывать интерактивный опрос
+        echo "CONFIG_RADIO_LINK_SELECTION=y" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
+        echo "CONFIG_DOT11K_RRM_SUPPORT=n" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
+        echo "CONFIG_GPIO_CONTROL_SUPPORT=y" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
+        echo "CONFIG_ROAMING_ENHANCE_SUPPORT=n" >> configs/boards/K2P-USB/kernel-3.4.x-5.0.config
+        
         if [ ! -f configs/templates/K2P-USB.config ] ; then
           echo "Config for K2P-USB not found!"
           exit 1
@@ -53,14 +60,8 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Предварительно и безопасно прожимаем скрытый silentoldconfig, чтобы ядро само создало файл autoconf.h
-        cp -f configs/boards/K2P-USB/kernel-3.4.x-5.0.config linux-3.4.x/.config
-        cd linux-3.4.x
-        yes "" | make ARCH=mips CROSS_COMPILE=${CONFIG_TOOLCHAIN_DIR}/toolchain-3.4.x/bin/mipsel-linux-uclibc- silentoldconfig
-        cd ..
-        
-        # Запускаем штатную компиляцию всей прошивки
-        sudo sh -c 'yes "" | ./build_firmware_modify K2P-USB 0'
+        # Запускаем чистую сборку оригинального профиля K2P-USB
+        sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
 
