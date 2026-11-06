@@ -11,7 +11,7 @@ jobs:
     - name: Checkout custom toolchain
       run: |
         # Скачиваем чистый репозиторий от sereja8
-        git clone --depth=1 https://github.com rt-n56u
+        git clone --depth=1 https://github.com/sereja8/rt-n56u.git rt-n56u
         mkdir -p /opt/images/
 
     - name: Initialization environment
