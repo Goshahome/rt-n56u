@@ -53,13 +53,16 @@ jobs:
         mv configs/boards/K2P-USB configs/boards/SMBXTURBO
         mv configs/boards/SMBXTURBO/kernel-3.4.x-5.0.config configs/boards/SMBXTURBO/kernel-3.4.x.config
         
-        # ХИТРОСТЬ: Принудительно отключаем интерактивность конфигуратора старого ядра
-        # Мы заменяем команду silentoldconfig на oldconfig и скармливаем ей пустые ответы на системном уровне
+        # Отключаем интерактивность конфигуратора старого ядра
         cp -f configs/boards/SMBXTURBO/kernel-3.4.x.config linux-3.4.x/.config
         sed -i 's/silentoldconfig/oldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
         
-        # Запускаем сборку, подсунув авто-нажатие Enter во внутренний вызов скрипта
+        # МАГИЯ-2: Обрезаем длинную строку версии ядра, чтобы уложиться в 64 символа
+        sed -i 's/[-_]${FIRMWARE_PRODUCT_ID}//g' libs/build_version
+        echo "3.4.3.9" > libs/version.txt
+        
+        # Запускаем сборку
         sudo KCONFIG_NOSILENTUPDATE=1- sh -c 'yes "" | ./build_firmware_modify SMBXTURBO 0'
         
         sudo mv -f images/*.trx /opt/images/
