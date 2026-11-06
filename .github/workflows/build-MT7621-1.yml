@@ -32,6 +32,7 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
+        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x.config"/g' configs/templates/K2P-USB.config
         if [ ! -f configs/templates/K2P-USB.config ] ; then
           echo "Config for K2P-USB not found!"
           exit 1
