@@ -26,8 +26,7 @@ jobs:
         sh dl_toolchain.sh
         mkdir -p /opt/images/
 
-    
-           - name: Build Firmware
+    - name: Build Firmware
       run: |
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
@@ -42,7 +41,6 @@ jobs:
         sudo ./clear_tree_simple
         sudo ./build_firmware_modify K2P-USB 0
         sudo mv -f images/*.trx /opt/images/
-
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
