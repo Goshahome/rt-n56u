@@ -56,19 +56,10 @@ jobs:
         # Запускаем сборку оригинального стабильного профиля K2P-USB
         sudo ./build_firmware_modify K2P-USB 0
         
-        # Переименовываем готовый файл под паспорт вашего роутера перед упаковкой
-        cd images
-        for file in *.trx; do
-          if [ -f "$file" ]; then
-            mv "$file" "Padavan_SmartBox_Turbo_Plus_4.4_ZRAM.trx"
-          fi
-        done
-        cd ..
-        
         sudo mv -f images/*.trx /opt/images/
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Padavan_SmartBox_Turbo_Plus
+        name: Padavan_K2P-USB
         path: /opt/images/*.trx
