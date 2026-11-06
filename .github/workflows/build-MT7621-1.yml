@@ -51,16 +51,17 @@ jobs:
         
         # Переименовываем профиль сборки под разметку Смартбокса
         mv configs/boards/K2P-USB configs/boards/SMBXTURBO
-        
-        # Переименовываем файл конфига ядра внутри папки, убирая приписку -5.0
         mv configs/boards/SMBXTURBO/kernel-3.4.x-5.0.config configs/boards/SMBXTURBO/kernel-3.4.x.config
         
-        # Дописываем дефолтные ответы на новые Wi-Fi вопросы прямо в файл конфигурации ядра
-        echo "CONFIG_RADIO_LINK_SELECTION=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
-        echo "CONFIG_DOT11K_RRM_SUPPORT=n" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
-        echo "CONFIG_EXT4_USE_FOR_EXT23=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        # ХИТРОСТЬ: Принудительно отключаем интерактивность конфигуратора старого ядра
+        # Мы заменяем команду silentoldconfig на oldconfig и скармливаем ей пустые ответы на системном уровне
+        cp -f configs/boards/SMBXTURBO/kernel-3.4.x.config linux-3.4.x/.config
+        sed -i 's/silentoldconfig/oldconfig/g' Makefile
+        sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
         
-        sudo ./build_firmware_modify SMBXTURBO 0
+        # Запускаем сборку, подсунув авто-нажатие Enter во внутренний вызов скрипта
+        sudo KCONFIG_NOSILENTUPDATE=1- sh -c 'yes "" | ./build_firmware_modify SMBXTURBO 0'
+        
         sudo mv -f images/*.trx /opt/images/
 
     - name: Upload Artifact
