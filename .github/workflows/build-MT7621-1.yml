@@ -37,20 +37,22 @@ jobs:
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # Передаем точный путь к свежесобранному компилятору (в архитектуре padavan-ng он собирается в паку opt)
+        # Передаем точный путь к свежесобранному компилятору
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/..\\/toolchain\\/opt\\/mipsel-linux-uclibc
         
-        # Заглушка кривых версий Git (убирает ошибку превышения 64 символов)
-        echo '#!/bin/sh' > linux-4.4.x/scripts/setlocalversion || echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
-        echo 'echo ""' >> linux-4.4.x/scripts/setlocalversion || echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
-        chmod +x linux-4.4.x/scripts/setlocalversion || chmod +x linux-3.4.x/scripts/setlocalversion
+        # Заглушка кривых версий Git (убирает ошибку превышения 64 символов) под папку 3.4.x
+        echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
+        echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
+        chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Автоматический обход интерактивных вопросов Kconfig
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-4.4.x/scripts/kconfig/Makefile || sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
+        # Автоматический обход интерактивных вопросов Kconfig под папку 3.4.x
+        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
+        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
+        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
         
-        # ЗАПУСКАЕМ СБОРКУ: Скрипт у Сергея сам скопирует и настроит профиль Смартбокса SMBXTURBO под Breed (0)
-        sudo CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR} ./build_firmware SMBXTURBO 0
+        # ЗАПУСКАЕМ СБОРКУ: Скрипт называется build_firmware_modify, собираем родной SMBXTURBO под Breed (0)
+        sudo CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR} ./build_firmware_modify SMBXTURBO 0
         
         sudo mv -f images/*.trx /opt/images/
 
