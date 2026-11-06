@@ -32,14 +32,17 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
-        # Переключаем наш легкий шаблон конфигурации на родную разметку смартбокса
-        sed -i 's/^CONFIG_FIRMWARE_PRODUCT_ID=.*$/CONFIG_FIRMWARE_PRODUCT_ID="smbxturbo"/g' configs/templates/K2P-USB.config
+        # Заставляем систему считать папку ядра родной linux-3.4.x
         sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
-        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x.config"/g' configs/templates/K2P-USB.config
+        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x-5.0.config"/g' configs/templates/K2P-USB.config
         
         # Безопасно вырезаем блок сборки GO из Makefile утилит
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
+        
+        # ХИТРОСТЬ: Оставляем оригинальное имя K2P-USB для компилятора, но на этапе генерации заголовка вшиваем имя вашего роутера!
+        sed -i 's/FIRMWARE_PRODUCT_ID="K2P-USB"/FIRMWARE_PRODUCT_ID="SMBXTURBO"/g' libs/build_version
+        sed -i 's/echo "K2P-USB"/echo "SMBXTURBO"/g' user/shared/board.c
         
         if [ ! -f configs/templates/K2P-USB.config ] ; then
           echo "Config for K2P-USB not found!"
@@ -49,29 +52,18 @@ jobs:
         cp -f configs/templates/K2P-USB.config .config
         sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
         
-        # Копируем настройки оборудования k2p в родную папку разметки smbxturbo
-        # Это даст прошивке правильные драйверы портов, Wi-Fi и описание чипа MT7621
-        cp -r configs/boards/K2P-USB configs/boards/smbxturbo
-        mv configs/boards/smbxturbo/kernel-3.4.x-5.0.config configs/boards/smbxturbo/kernel-3.4.x.config
-        
         # Заглушка кривых версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Финальный автоматический проход скрытых Wi-Fi вопросов для этой разметки
-        cp -f configs/boards/smbxturbo/kernel-3.4.x.config linux-3.4.x/.config
-        cd linux-3.4.x
-        yes "" | make ARCH=mips CROSS_COMPILE=${CONFIG_TOOLCHAIN_DIR}/toolchain-3.4.x/bin/mipsel-linux-uclibc- silentoldconfig
-        cd ..
-        
-        # Запускаем сборку под правильным маленьким именем платы!
-        sudo ./build_firmware_modify smbxturbo 0
+        # Запускаем сборку под оригинальным именем (это исключит любые новые вопросы ядра)
+        sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Padavan_SmartBox_Turbo
+        name: Padavan_K2P-USB
         path: /opt/images/*.trx
