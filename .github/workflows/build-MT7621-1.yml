@@ -26,7 +26,7 @@ jobs:
         sh dl_toolchain.sh
         mkdir -p /opt/images/
 
-        - name: Build Firmware
+    - name: Build Firmware
       run: |
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
@@ -55,12 +55,12 @@ jobs:
         # Переименовываем файл конфига ядра внутри папки, убирая приписку -5.0
         mv configs/boards/SMBXTURBO/kernel-3.4.x-5.0.config configs/boards/SMBXTURBO/kernel-3.4.x.config
         
-        # МАГИЯ: Автоматически применяем дефолтные ответы на ВСЕ новые скрытые вопросы ядра (Wi-Fi, ext4 и др.)
+        # МАГИЯ: Принудительно генерируем конфиг и автоматически выбираем "по умолчанию" на все интерактивные вопросы Wi-Fi
+        cp -f configs/boards/SMBXTURBO/kernel-3.4.x.config linux-3.4.x/.config
         make -C linux-3.4.x HOSTCC=gcc olddefconfig
         
         sudo ./build_firmware_modify SMBXTURBO 0
         sudo mv -f images/*.trx /opt/images/
-
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
