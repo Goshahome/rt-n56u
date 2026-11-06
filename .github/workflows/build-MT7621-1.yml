@@ -32,11 +32,7 @@ jobs:
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
         
-        # Настройка путей под структуру родного ядра k2p
-        sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" configs/templates/K2P-USB.config
-        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x-5.0.config"/g' configs/templates/K2P-USB.config
-        
-        # Безопасно вырезаем блок сборки GO из Makefile утилит
+        # Полностью очищаем Makefile утилит от упавшего пакета GO
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
@@ -53,7 +49,7 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Запускаем сборку оригинального стабильного профиля K2P-USB
+        # Стабильный запуск компиляции без интерактивных опросов
         sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
