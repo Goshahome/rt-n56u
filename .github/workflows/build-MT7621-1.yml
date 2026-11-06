@@ -10,8 +10,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
 
     - name: Initialization environment
       env:
@@ -60,9 +58,11 @@ jobs:
         sed -i 's/silentoldconfig/oldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
         
-        # Генерируем правильныйutsrelease и готовим ядро, убирая ошибку "kernelrelease not valid"
-        make -C linux-3.4.x HOSTCC=gcc oldconfig
-        make -C linux-3.4.x HOSTCC=gcc prepare
+        # УЛЬТРА-МАГИЯ: Убиваем генератор кривых версий Git, заменяя его пустышкой
+        # Это навсегда уберет ломающий текст "Error: kernelrelease not valid"
+        echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
+        echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
+        chmod +x linux-3.4.x/scripts/setlocalversion
         
         # Запускаем сборку
         sudo KCONFIG_NOSILENTUPDATE=1- sh -c 'yes "" | ./build_firmware_modify SMBXTURBO 0'
