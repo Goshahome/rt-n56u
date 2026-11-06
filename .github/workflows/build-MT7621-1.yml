@@ -10,6 +10,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Initialization environment
       env:
@@ -58,9 +60,9 @@ jobs:
         sed -i 's/silentoldconfig/oldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldconfig/g' linux-3.4.x/Makefile
         
-        # УЛЬТРА-МАГИЯ: Вырезаем саму проверку на превышение длины 64 символов в Makefile ядра!
-        # Мы просто удаляем ломающий блок проверки длины строки "exceeds 64 characters" на корню
-        sed -i '/@if \[ `echo -n \$\$(KERNELRELEASE) | wc -c` -gt 64 \]; then/,/fi/d' linux-3.4.x/Makefile
+        # Генерируем правильныйutsrelease и готовим ядро, убирая ошибку "kernelrelease not valid"
+        make -C linux-3.4.x HOSTCC=gcc oldconfig
+        make -C linux-3.4.x HOSTCC=gcc prepare
         
         # Запускаем сборку
         sudo KCONFIG_NOSILENTUPDATE=1- sh -c 'yes "" | ./build_firmware_modify SMBXTURBO 0'
