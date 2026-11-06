@@ -10,7 +10,7 @@ jobs:
     steps:
     - name: Checkout custom toolchain from GitLab
       run: |
-        # Скачиваем чистый репозиторий со структурой как на скриншоте
+        # Скачиваем чистый репозиторий падаванов нового поколения от Сергея
         git clone --depth=1 https://gitlab.com/hadzhioglu/padavan-ng.git padavan-ng
         mkdir -p /opt/images/
 
@@ -25,7 +25,7 @@ jobs:
 
     - name: Build Firmware
       run: |
-        # 1. ЗАХОДИМ В ПАПКУ TOOLCHAIN И ЗАПУСКАЕМ СБОРКУ КОМПИЛЯТОРА ЧЕРЕЗ ШТАТНЫЙ .SH СКРИПТ
+        # 1. ЗАХОДИМ В ПАПКУ TOOLCHAIN И ЗАПУСКАЕМ СБОРКУ КОМПИЛЯТОРА
         cd padavan-ng/toolchain
         sudo chmod +x build_toolchain.sh
         ./build_toolchain.sh
@@ -37,13 +37,9 @@ jobs:
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # Накатываем родной профиль конфигурации Смартбокса из папки templates
-        cp -f configs/templates/SMBXTURBO.config .config
-        
-        # Передаем точный путь к только что собранному компилятору
+        # Передаем точный путь к свежесобранному компилятору (в архитектуре padavan-ng он собирается в паку opt)
         cwd=`pwd`
-        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/..\\/toolchain\\/mipsel-linux-uclibc
-        sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
+        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/..\\/toolchain\\/opt\\/mipsel-linux-uclibc
         
         # Заглушка кривых версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-4.4.x/scripts/setlocalversion || echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
@@ -53,8 +49,8 @@ jobs:
         # Автоматический обход интерактивных вопросов Kconfig
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-4.4.x/scripts/kconfig/Makefile || sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
         
-        # ЗАПУСКАЕМ СБОРКУ: Скрипт у Сергея называется build_firmware, собираем родной SMBXTURBO под Breed (0)
-        sudo ./build_firmware SMBXTURBO 0
+        # ЗАПУСКАЕМ СБОРКУ: Скрипт у Сергея сам скопирует и настроит профиль Смартбокса SMBXTURBO под Breed (0)
+        sudo CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR} ./build_firmware SMBXTURBO 0
         
         sudo mv -f images/*.trx /opt/images/
 
