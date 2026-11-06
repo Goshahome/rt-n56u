@@ -53,17 +53,9 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # ХИТРОСТЬ: Принудительно генерируем полностью валидный конфиг ядра ДО старта сборщика Padavan.
-        # Флаг KCONFIG_ALLCONFIG заставит систему автоматически прописать ответы "по умолчанию" на абсолютно ВСЕ скрытые вопросы Wi-Fi драйвера.
-        cp -f configs/boards/K2P-USB/kernel-3.4.x-5.0.config linux-3.4.x/.config
-        cd linux-3.4.x
-        export KCONFIG_ALLCONFIG=.config
-        make ARCH=mips CROSS_COMPILE=${CONFIG_TOOLCHAIN_DIR}/toolchain-3.4.x/bin/mipsel-linux-uclibc- oldconfig
-        make ARCH=mips CROSS_COMPILE=${CONFIG_TOOLCHAIN_DIR}/toolchain-3.4.x/bin/mipsel-linux-uclibc- silentoldconfig
-        cd ..
-        
-        # Запускаем сборку. Скрипт увидит уже созданные и подтвержденные файлы autoconf.h и auto.conf и пролетит этот этап без единого вопроса!
-        sudo ./build_firmware_modify K2P-USB 0
+        # ПОБЕДНЫЙ ХОД: Запускаем сборку с переменной KCONFIG_ALLCONFIG=y, 
+        # которая намертво блокирует интерактивные вопросы ядра в тихом режиме
+        sudo KCONFIG_NOSILENTUPDATE=1 KCONFIG_ALLCONFIG=y ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
 
