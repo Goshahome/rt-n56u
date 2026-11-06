@@ -53,9 +53,14 @@ jobs:
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # ПОБЕДНЫЙ ХОД: Запускаем сборку с переменной KCONFIG_ALLCONFIG=y, 
-        # которая намертво блокирует интерактивные вопросы ядра в тихом режиме
-        sudo KCONFIG_NOSILENTUPDATE=1 KCONFIG_ALLCONFIG=y ./build_firmware_modify K2P-USB 0
+        # РАДИКАЛЬНОЕ РЕШЕНИЕ: Подменяем вызов интерактивногоsilentoldconfig на пустую команду true
+        # Это полностью отрубает опрос ядра и заставляет компилятор сразу перейти к сборке файлов
+        sed -i 's/silentoldconfig/true/g' Makefile
+        sed -i 's/silentoldconfig/true/g' linux-3.4.x/Makefile
+        cp -f configs/boards/K2P-USB/kernel-3.4.x-5.0.config linux-3.4.x/.config
+        
+        # Запускаем сборку прошивки
+        sudo ./build_firmware_modify K2P-USB 0
         
         sudo mv -f images/*.trx /opt/images/
 
