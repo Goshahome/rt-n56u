@@ -55,9 +55,10 @@ jobs:
         # Переименовываем файл конфига ядра внутри папки, убирая приписку -5.0
         mv configs/boards/SMBXTURBO/kernel-3.4.x-5.0.config configs/boards/SMBXTURBO/kernel-3.4.x.config
         
-        # МАГИЯ: Принудительно генерируем конфиг и автоматически выбираем "по умолчанию" на все интерактивные вопросы Wi-Fi
-        cp -f configs/boards/SMBXTURBO/kernel-3.4.x.config linux-3.4.x/.config
-        make -C linux-3.4.x HOSTCC=gcc olddefconfig
+        # Дописываем дефолтные ответы на новые Wi-Fi вопросы прямо в файл конфигурации ядра
+        echo "CONFIG_RADIO_LINK_SELECTION=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_DOT11K_RRM_SUPPORT=n" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
+        echo "CONFIG_EXT4_USE_FOR_EXT23=y" >> configs/boards/SMBXTURBO/kernel-3.4.x.config
         
         sudo ./build_firmware_modify SMBXTURBO 0
         sudo mv -f images/*.trx /opt/images/
