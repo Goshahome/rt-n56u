@@ -11,79 +11,12 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
+    - name: Inspect 128M boards and partition files
       run: |
-        sudo apt-get update
-        sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
-        cpio git python3-docutils gettext automake autopoint texinfo build-essential help2man \
-        pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
-
-    - name: Prepare Toolchain
-      run: |
-        cd toolchain-mipsel
-        sh dl_toolchain.sh
-        mkdir -p /opt/images/
-
-    - name: Build Firmware (Kernel 4.4 + 0x200000 Breed Layout)
-      run: |
-        cwd=`pwd`
-        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd trunk
-        
-        # 1. Вырезаем упавший Go и тяжёлый софт для экономии ОЗУ под Tailscale Amnezia
-        sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
-        sed -i 's/dir_go//g' tools/Makefile
-        
-        # 2. Выбираем профиль: если в репозитории есть SMBXTURBO — берём его, иначе проверенный K2P-USB (MT7621 + USB)
-        BOARD="K2P-USB"
-        if [ -f configs/templates/SMBXTURBO.config ]; then
-          BOARD="SMBXTURBO"
-        elif [ -f configs/templates/sercomm/smbxturbo.config ]; then
-          cp -f configs/templates/sercomm/smbxturbo.config configs/templates/SMBXTURBO.config
-          BOARD="SMBXTURBO"
-        fi
-        echo "Выбран профиль платы: $BOARD"
-        
-        CFG="configs/templates/${BOARD}.config"
-        
-        # Настраиваем ядро 4.4 (в этом репозитории оно лежит в каталоге linux-3.4.x с конфигом 5.0)
-        sed -i "s/^CONFIG_LINUXDIR=.*$/CONFIG_LINUXDIR=linux-3.4.x/g" "$CFG"
-        sed -i 's/^CONFIG_FIRMWARE_KERNEL_CONFIG=.*$/CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x-5.0.config"/g' "$CFG"
-        
-        # Отключаем лишние тяжёлые пакеты, оставляем USB, IPv6, ZRAM и TUN
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_HTOP=y/# CONFIG_FIRMWARE_INCLUDE_HTOP is not set/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_ARIA=y/# CONFIG_FIRMWARE_INCLUDE_ARIA is not set/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_TRANSMISSION=y/# CONFIG_FIRMWARE_INCLUDE_TRANSMISSION is not set/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_MINIDLNA=y/# CONFIG_FIRMWARE_INCLUDE_MINIDLNA is not set/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_SAMBA=y/# CONFIG_FIRMWARE_INCLUDE_SAMBA is not set/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_E2FSPROGS=y/# CONFIG_FIRMWARE_INCLUDE_E2FSPROGS is not set/g' "$CFG"
-        
-        # Включаем поддержку USB и ZRAM (критично для работы Tailscale на 128MB RAM)
-        echo "CONFIG_FIRMWARE_ENABLE_USB=y" >> "$CFG"
-        echo "CONFIG_FIRMWARE_INCLUDE_ZRAM=y" >> "$CFG"
-        
-        cp -f "$CFG" .config
-        sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
-        
-        # 3. Заглушка версий Git (убирает ошибку превышения 64 символов)
-        echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
-        echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
-        chmod +x linux-3.4.x/scripts/setlocalversion
-        
-        # 4. Двухэтапный обход Kconfig
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
-        
-        # 5. Запускаем сборку под Breed (флаг 0)
-        sudo ./build_firmware_modify "$BOARD" 0
-        
-        sudo mv -f images/*.trx /opt/images/
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Padavan_Kernel_4_4_SmartBox_0x200000
-        path: /opt/images/*.trx
+        echo "=== 1. ВСЕ ПЛАТЫ В configs/boards ==="
+        find configs/boards -maxdepth 3
+        echo "=== 2. ВСЕ ФАЙЛЫ РАЗМЕТКИ РАЗДЕЛОВ ==="
+        find configs/boards linux-3.4.x/drivers/mtd -iname "*part*" -o -iname "*mtd*" 2>/dev/null
+        echo "=== 3. ПЛАТЫ НА 128M NAND (RM2100 / R6220 / MI-R3G / SMBX) ==="
+        grep -rn "0x200000" configs/boards/ || true
