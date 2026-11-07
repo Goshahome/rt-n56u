@@ -8,14 +8,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check SMBXTURBO partitions and layout
+    - name: Check available partition layouts in padavan-ng
       run: |
         git clone --depth=1 https://gitlab.com/hadzhioglu/padavan-ng.git padavan-ng
-        cd padavan-ng/trunk
-        echo "=== 1. СОДЕРЖИМОЕ configs/boards/SERCOMM/SMBXTURBO ==="
-        ls -la configs/boards/SERCOMM/SMBXTURBO/
-        echo "=== 2. partitions.config ==="
-        cat configs/boards/SERCOMM/SMBXTURBO/partitions.config || true
-        echo "=== 3. board.mk и board.h ==="
-        cat configs/boards/SERCOMM/SMBXTURBO/board.mk || true
-        cat configs/boards/SERCOMM/SMBXTURBO/board.h || true
+        cd padavan-ng/trunk/configs/boards
+        echo "=== 1. ВСЕ ФАЙЛЫ ТАБЛИЦ РАЗДЕЛОВ (pt_*.config / partitions.config) ==="
+        find . -name "*pt_*.config" -o -name "partitions.config"
+        echo "=== 2. ПЛАТЫ NETGEAR И ИХ РАЗМЕТКА ==="
+        find . -iname "*r6220*" -o -iname "*netgear*"
+        cat NETGEAR/R6220/partitions.config 2>/dev/null || find . -iname "*r6220*" -exec head -n 50 {} +
