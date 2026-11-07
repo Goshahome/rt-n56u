@@ -8,25 +8,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Inspect padavan-ng repository structure
+    - name: Read official CI build commands
       run: |
         git clone --depth=1 https://gitlab.com/hadzhioglu/padavan-ng.git padavan-ng
         cd padavan-ng
-        
-        echo "=== 1. КОРЕНЬ РЕПОЗИТОРИЯ ==="
-        ls -la
-        
-        echo "=== 2. СКРИПТЫ И ФАЙЛЫ В TRUNK ==="
-        ls -la trunk/
-        
-        echo "=== 3. ВСЕ КОНФИГИ ДЛЯ SMBXTURBO ==="
-        find trunk/configs -iname "*smbxturbo*"
-        
-        echo "=== 4. СОДЕРЖИМОЕ configs/templates/sercomm/smbxturbo.config ==="
-        cat trunk/configs/templates/sercomm/smbxturbo.config || true
-        
-        echo "=== 5. ПОИСК ВСЕХ ФАЙЛОВ ra_nat.h И ПАПОК nat / hw_nat / rt_ppe ==="
+        echo "=== 1. ОФИЦИАЛЬНЫЙ .gitlab-ci.yml ==="
+        cat .gitlab-ci.yml
+        echo "=== 2. НАЧАЛО trunk/build_firmware.sh ==="
+        head -n 120 trunk/build_firmware.sh
+        echo "=== 3. ПОИСК ra_nat.h ==="
         find . -iname "*ra_nat*" -o -iname "*hw_nat*" -o -iname "*rt_ppe*"
-        
-        echo "=== 6. ПАПКИ ВНУТРИ trunk/linux-3.4.x/net/ ==="
-        ls -la trunk/linux-3.4.x/net/ || true
