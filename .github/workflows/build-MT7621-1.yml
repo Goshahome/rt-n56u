@@ -10,7 +10,6 @@ jobs:
     steps:
     - name: Checkout custom toolchain from GitLab
       run: |
-        # Скачиваем чистый репозиторий падаванов нового поколения от Сергея
         git clone --depth=1 https://gitlab.com/hadzhioglu/padavan-ng.git padavan-ng
         mkdir -p /opt/images/
 
@@ -25,34 +24,46 @@ jobs:
 
     - name: Build Firmware
       run: |
-        # 1. ЗАХОДИМ В ПАПКУ TOOLCHAIN И ЗАПУСКАЕМ СБОРКУ КОМПИЛЯТОРА
+        # 1. Собираем кросс-компилятор (тулчейн)
         cd padavan-ng/toolchain
         sudo chmod +x build_toolchain.sh
         ./build_toolchain.sh
         
-        # 2. ПЕРЕХОДИМ В ПАПКУ TRUNK ДЛЯ СБОРКИ САМОЙ ПРОШИВКИ
+        # 2. Переходим в папку trunk для сборки прошивки
         cd ../trunk
         
-        # Полностью очищаем софт от упавшего Go, который нам не нужен
+        # Очищаем сборку от Go
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # Передаем точный путь к свежесобранному компилятору
-        cwd=`pwd`
-        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/..\\/toolchain\\/opt\\/mipsel-linux-uclibc
+        # Находим и копируем родной профиль конфигурации Smart Box Turbo+ (SMBXTURBO)
+        CONFIG_FILE=$(find configs -iname "*SMBXTURBO*.config" | head -n 1)
+        if [ -z "$CONFIG_FILE" ]; then
+          echo "Файл конфигурации для SMBXTURBO не найден!"
+          find configs -type f
+          exit 1
+        fi
+        echo "Используем конфигурацию: $CONFIG_FILE"
+        cp -f "$CONFIG_FILE" .config
         
-        # Заглушка кривых версий Git (убирает ошибку превышения 64 символов) под папку 3.4.x
+        # Прописываем путь к свежесобранному тулчейну
+        cwd=`pwd`
+        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/..\\/toolchain\\/out
+        sed -i "s|^CONFIG_TOOLCHAIN_DIR=.*|CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}|g" .config
+        
+        # Заглушка версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Автоматический обход интерактивных вопросов Kconfig под папку 3.4.x
+        # Автоматический обход интерактивных вопросов Kconfig
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
         
-        # ЗАПУСКАЕМ СБОРКУ: Скрипт называется build_firmware_modify, собираем родной SMBXTURBO под Breed (0)
-        sudo CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR} ./build_firmware_modify SMBXTURBO 0
+        # Классическая сборка прошивки Padavan через make
+        make clean
+        make -j$(nproc)
         
         sudo mv -f images/*.trx /opt/images/
 
