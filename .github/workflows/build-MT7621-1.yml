@@ -40,54 +40,55 @@ jobs:
 
     - name: Build Firmware
       run: |
-        # 1. Находим реальный путь к собранному компилятору mipsel-linux-uclibc-gcc
         GCC_PATH=$(find "$(pwd)/padavan-ng/toolchain" -name "mipsel-linux-uclibc-gcc" -type f | head -n 1)
         TOOLCHAIN_BIN_DIR=$(dirname "$GCC_PATH")
         TOOLCHAIN_ROOT_DIR=$(dirname "$TOOLCHAIN_BIN_DIR")
         echo "Найден тулчейн: $TOOLCHAIN_ROOT_DIR"
         export PATH="$TOOLCHAIN_BIN_DIR:$PATH"
         
-        # 2. Настраиваем CONFIG_SITE для отключения Python 2/3 во всех скриптах ./configure
-        printf 'with_python=no\nwith_python3=no\n' > /tmp/padavan_config.site
+        printf 'with_python=no\nwith_python3=no\nPTHREAD_LIBS=-lpthread\nax_cv_PTHREAD_LIBS=-lpthread\n' > /tmp/padavan_config.site
         export CONFIG_SITE=/tmp/padavan_config.site
+        export PTHREAD_LIBS=-lpthread
         
-        # 3. Переходим в trunk
+        cat << 'EOF' > /tmp/fix_tirpc.sh
+        #!/bin/sh
+        find . -name "Makefile" -exec sed -i 's/@PTHREAD_LIBS@/-lpthread/g; s/PTHREAD_LIBS@/-lpthread/g' {} +
+        EOF
+        chmod +x /tmp/fix_tirpc.sh
+        
         cd padavan-ng/trunk
         
-        # Очищаем сборку от Go
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # Безопасно добавляем --without-python3 в libs/libcap-ng/Makefile рядом с --without-python (без поломки синтаксиса)
         if [ -f libs/libcap-ng/Makefile ]; then
           sed -i 's/--without-python\b/--without-python --without-python3/g' libs/libcap-ng/Makefile
         fi
         
-        # Копируем родной профиль Smart Box Turbo+
+        if [ -f libs/libtirpc/Makefile ]; then
+          TAB=$(printf '\t')
+          sed -i "/^all:/a\\${TAB}/tmp/fix_tirpc.sh" libs/libtirpc/Makefile
+        fi
+        
         cp -f configs/templates/sercomm/smbxturbo.config .config
         
-        # Находим и копируем базовый конфиг ядра для платы smbxturbo
         KERNEL_CFG=$(find configs/boards -ipath "*smbxturbo*" -name "kernel*.config" | head -n 1)
         if [ -z "$KERNEL_CFG" ]; then
           KERNEL_CFG=$(find configs/boards -name "kernel-3.4.x.config" | head -n 1)
         fi
         cp -f "$KERNEL_CFG" linux-3.4.x/.config
         
-        # Прописываем путь к тулчейну в .config
         ESCAPED_ROOT=$(echo "$TOOLCHAIN_ROOT_DIR" | sed 's/\//\\\//g')
         sed -i "s|^CONFIG_TOOLCHAIN_DIR=.*|CONFIG_TOOLCHAIN_DIR=\"${ESCAPED_ROOT}\"|g" .config
         
-        # Заглушка версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
         echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
         chmod +x linux-3.4.x/scripts/setlocalversion
         
-        # Автоматический обход интерактивных вопросов Kconfig
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
         
-        # Если в trunk есть штатный скрипт сборки (build_firmware.sh), используем его; иначе — штатный make
         if [ -f ./build_firmware.sh ]; then
           chmod +x ./build_firmware.sh
           ./build_firmware.sh
