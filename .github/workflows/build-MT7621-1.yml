@@ -8,17 +8,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check WiFi config for MT7603 + MT7615 in Padavan 4.4
+    - name: Compare kernel WiFi configs (MI-R3G vs NETGEAR-BZV)
       run: |
         BASE="https://github.com"
         git clone --depth=1 "${BASE}/tsl0922/padavan-4.4.git" padavan-4.4
-        cd padavan-4.4/trunk
+        cd padavan-4.4/trunk/configs/boards
 
-        echo "=== 1. СЕКЦИЯ WIFI В NETGEAR-BZV.config ==="
-        grep -iE "WIFI|EEPROM|MT76|FLASH" configs/templates/NETGEAR-BZV.config || true
+        echo "=== 1. NETGEAR-BZV/kernel-4.4.x.config (MT76 / WIFI / EEPROM) ==="
+        grep -iE "MT76|WIFI|EEPROM|RALINK|RT28" NETGEAR-BZV/kernel-4.4.x.config || true
 
-        echo "=== 2. СЕКЦИЯ WIFI В MI-R3G.config ==="
-        grep -iE "WIFI|EEPROM|MT76|FLASH" configs/templates/MI-R3G.config || true
+        echo "=== 2. MI-R3G/kernel-4.4.x.config (MT76 / WIFI / EEPROM) ==="
+        grep -iE "MT76|WIFI|EEPROM|RALINK|RT28" MI-R3G/kernel-4.4.x.config || true
 
-        echo "=== 3. NETGEAR-BZV/board.h ==="
-        cat configs/boards/NETGEAR-BZV/board.h
+        echo "=== 3. ПЛАТЫ С ДВУМЯ РАЗНЫМИ ЧИПАМИ (7603 + 7615) ==="
+        grep -rn "CONFIG_MT7603E" . || true
