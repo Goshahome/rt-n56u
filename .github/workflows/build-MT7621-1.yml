@@ -10,7 +10,7 @@ jobs:
     steps:
     - name: Inspect Padavan 4.4 repository (hanwckf)
       run: |
-        git clone --depth=1 https://github.com padavan-4.4
+        git clone --depth=1 https://github.com/hanwckf/rt-n56u.git padavan-4.4
         cd padavan-4.4
         
         echo "=== 1. КОРЕНЬ РЕПОЗИТОРИЯ И ВЕРСИИ ЯДЕР ==="
