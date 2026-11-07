@@ -8,59 +8,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Padavan 4.4
+    - name: Inspect DTS and 128M boards in Padavan 4.4
       run: |
         BASE="https://github.com"
         git clone --depth=1 "${BASE}/tsl0922/padavan-4.4.git" padavan-4.4
+        cd padavan-4.4/trunk
 
-    - name: Setup Go and Node
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
-        cache: false
+        echo "=== 1. ВСЕ .DTS ФАЙЛЫ В ЯДРЕ 4.4 ==="
+        ls -la linux-4.4.x/arch/mips/boot/dts/ralink/
 
-    - name: Setup Node
-      uses: actions/setup-node@v3
-      with:
-        node-version: 18
+        echo "=== 2. ВСЕ ПЛАТЫ В configs/boards ==="
+        find configs/boards -maxdepth 2
 
-    - name: Prepare Environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install libtool-bin libltdl-dev gperf python3-docutils autopoint gettext ccache
-
-    - name: Configure and Build MI-R3G (Kernel 4.4, 128MB RAM, 0x200000)
-      working-directory: padavan-4.4
-      run: |
-        CFG="trunk/configs/templates/MI-R3G.config"
-        
-        # 1. Исправляем объём ОЗУ под Smart Box Turbo+ (128 МБ вместо 256 МБ)
-        sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$CFG"
-        
-        # 2. Убираем -Werror в драйвере Wi-Fi mt76x3 и ядре 4.4
-        find trunk/linux-4.4.x/drivers/net/wireless/mediatek -name "Makefile" -exec sed -i 's/-Werror/-Wno-error/g' {} +
-        sed -i 's/-Werror=misleading-indentation/-Wno-misleading-indentation/g' trunk/linux-4.4.x/Makefile
-        
-        # 3. Включаем русский язык и отключаем лишние тяжёлые сервисы для экономии ОЗУ
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_LANG_CN=y/#CONFIG_FIRMWARE_INCLUDE_LANG_CN=y/g' "$CFG"
-        sed -i 's/#CONFIG_FIRMWARE_INCLUDE_LANG_RU=y/CONFIG_FIRMWARE_INCLUDE_LANG_RU=y/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_SMBD=y/CONFIG_FIRMWARE_INCLUDE_SMBD=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSH=y/CONFIG_FIRMWARE_INCLUDE_OPENSSH=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_DROPBEAR=n/CONFIG_FIRMWARE_INCLUDE_DROPBEAR=y/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENVPN=y/CONFIG_FIRMWARE_INCLUDE_OPENVPN=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_XUPNPD=y/CONFIG_FIRMWARE_INCLUDE_XUPNPD=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_HTOP=y/CONFIG_FIRMWARE_INCLUDE_HTOP=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_IPERF3=y/CONFIG_FIRMWARE_INCLUDE_IPERF3=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_WIREGUARD=y/CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_PARTED=y/CONFIG_FIRMWARE_INCLUDE_PARTED=n/g' "$CFG"
-        
-        # 4. Запускаем официальную сборку Padavan 4.4 (тулчейн musl скачается автоматически)
-        make MI-R3G TOOLCHAIN=mipsel-linux-musl
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Padavan_4_4_SmartBox_musl_0x200000
-        path: padavan-4.4/trunk/images/*.trx
+        echo "=== 3. ПЛАТЫ БЕЗ GPT (ИЩЕМ 0x200000 ИЛИ R6220 / NEWIFI / ZYXEL / SERCOMM) ==="
+        grep -rn "0x200000\|R6220\|SERCOMM\|SMBX" configs/boards/ linux-4.4.x/drivers/mtd/nand/ || true
