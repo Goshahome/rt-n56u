@@ -8,17 +8,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Inspect Padavan 4.4 repository (hanwckf)
+    - name: Find and inspect Padavan 4.4 repository
       run: |
-        git clone --depth=1 https://github.com/hanwckf/rt-n56u.git padavan-4.4
+        REPO_URL=""
+        for url in \
+          "https://github.com" \
+          "https://github.com" \
+          "https://github.com" \
+          "https://github.com"; do
+          if git ls-remote "$url" HEAD >/dev/null 2>&1; then
+            REPO_URL="$url"
+            echo "Найден живой репозиторий 4.4: $REPO_URL"
+            break
+          fi
+        done
+
+        if [ -z "$REPO_URL" ]; then
+          echo "Ни один из проверенных URL не доступен."
+          exit 1
+        fi
+
+        git clone --depth=1 "$REPO_URL" padavan-4.4
         cd padavan-4.4
-        
-        echo "=== 1. КОРЕНЬ РЕПОЗИТОРИЯ И ВЕРСИИ ЯДЕР ==="
+
+        echo "=== 1. КОРЕНЬ РЕПОЗИТОРИЯ И TRUNK ==="
         ls -la
         ls -la trunk/
-        
-        echo "=== 2. ПЛАТЫ НА 128M NAND (RM2100 / R6220 / MI-R3G / SMBX) ==="
-        find trunk/configs -iname "*rm2100*" -o -iname "*r6220*" -o -iname "*mi-r3g*" -o -iname "*smbx*"
-        
-        echo "=== 3. ФАЙЛЫ РАЗМЕТКИ РАЗДЕЛОВ В ЯДРЕ 4.4 ==="
+
+        echo "=== 2. ПЛАТЫ НА 128M NAND (R6220 / RM2100 / MI-R3G / SMBX) ==="
+        find trunk/configs -iname "*r6220*" -o -iname "*rm2100*" -o -iname "*mi-r3g*" -o -iname "*smbx*"
+
+        echo "=== 3. РАЗМЕТКА РАЗДЕЛОВ В ЯДРЕ 4.4 ==="
         find trunk/linux-4.4.x/drivers/mtd -maxdepth 2 -iname "*part*" -o -iname "*mtd*" 2>/dev/null
