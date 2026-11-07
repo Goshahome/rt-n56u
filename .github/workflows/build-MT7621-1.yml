@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Padavan 4.4
@@ -39,7 +39,11 @@ jobs:
         # 1. Исправляем объём ОЗУ под Smart Box Turbo+ (128 МБ вместо 256 МБ)
         sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$CFG"
         
-        # 2. Включаем русский язык и отключаем лишние тяжёлые сервисы для экономии ОЗУ
+        # 2. Убираем -Werror в драйвере Wi-Fi mt76x3 и ядре 4.4 (устраняет ошибку misleading-indentation)
+        find trunk/linux-4.4.x/drivers/net/wireless/mediatek -name "Makefile" -exec sed -i 's/-Werror/-Wno-error/g' {} +
+        sed -i 's/-Werror=misleading-indentation/-Wno-misleading-indentation/g' trunk/linux-4.4.x/Makefile
+        
+        # 3. Включаем русский язык и отключаем лишние тяжёлые сервисы для экономии ОЗУ
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_LANG_CN=y/#CONFIG_FIRMWARE_INCLUDE_LANG_CN=y/g' "$CFG"
         sed -i 's/#CONFIG_FIRMWARE_INCLUDE_LANG_RU=y/CONFIG_FIRMWARE_INCLUDE_LANG_RU=y/g' "$CFG"
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_SMBD=y/CONFIG_FIRMWARE_INCLUDE_SMBD=n/g' "$CFG"
@@ -52,7 +56,7 @@ jobs:
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_WIREGUARD=y/CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n/g' "$CFG"
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_PARTED=y/CONFIG_FIRMWARE_INCLUDE_PARTED=n/g' "$CFG"
         
-        # 3. Запускаем официальную сборку Padavan 4.4 (тулчейн musl скачается автоматически)
+        # 4. Запускаем официальную сборку Padavan 4.4 (тулчейн musl скачается автоматически)
         make MI-R3G TOOLCHAIN=mipsel-linux-musl
 
     - name: Upload Artifact
