@@ -49,6 +49,7 @@ jobs:
 
     - name: Build Firmware
       run: |
+        set -o pipefail
         GCC_PATH=$(find "$(pwd)/padavan-ng/toolchain" -name "mipsel-linux-uclibc-gcc" -type f | head -n 1)
         TOOLCHAIN_BIN_DIR=$(dirname "$GCC_PATH")
         TOOLCHAIN_ROOT_DIR=$(dirname "$TOOLCHAIN_BIN_DIR")
@@ -69,6 +70,7 @@ jobs:
         
         cd padavan-ng/trunk
         
+        # Очищаем от Go и фиксим известные баги библиотек
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
@@ -101,10 +103,16 @@ jobs:
         if [ -z "$KERNEL_CFG" ]; then
           KERNEL_CFG=$(find configs/boards -name "kernel-3.4.x.config" | head -n 1)
         fi
+        echo "Используем конфиг ядра: $KERNEL_CFG"
         cp -f "$KERNEL_CFG" "$LINUX_DIR/.config"
         
-        # Активируем CONFIG_RA_HW_NAT, который требуется драйверу ppp_generic.c
+        # Активируем CONFIG_RA_HW_NAT и подключаем оригинальную папку hw_nat
         sed -i 's/# CONFIG_RA_HW_NAT is not set/CONFIG_RA_HW_NAT=m/g' "$LINUX_DIR/.config"
+        HW_NAT_DIR=$(find "$(pwd)" -maxdepth 4 -type d -name "hw_nat" | grep -v "$LINUX_DIR/net/nat/hw_nat" | head -n 1)
+        if [ -n "$HW_NAT_DIR" ] && [ ! -e "$LINUX_DIR/net/nat/hw_nat" ]; then
+          mkdir -p "$LINUX_DIR/net/nat"
+          ln -sfn "$HW_NAT_DIR" "$LINUX_DIR/net/nat/hw_nat"
+        fi
         
         ESCAPED_ROOT=$(echo "$TOOLCHAIN_ROOT_DIR" | sed 's/\//\\\//g')
         sed -i "s|^CONFIG_TOOLCHAIN_DIR=.*|CONFIG_TOOLCHAIN_DIR=\"${ESCAPED_ROOT}\"|g" .config
@@ -113,20 +121,13 @@ jobs:
         echo 'echo ""' >> "$LINUX_DIR/scripts/setlocalversion"
         chmod +x "$LINUX_DIR/scripts/setlocalversion"
         
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' "$LINUX_DIR/scripts/kconfig/Makefile"
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' "$LINUX_DIR/Makefile"
-        
-        # Привязываем всю оригинальную папку hw_nat из репозитория, если симлинка ещё не создана
-        HW_NAT_DIR=$(find "$(pwd)" -maxdepth 4 -type d -name "hw_nat" | grep -v "$LINUX_DIR/net/nat/hw_nat" | head -n 1)
-        if [ -n "$HW_NAT_DIR" ] && [ ! -e "$LINUX_DIR/net/nat/hw_nat" ]; then
-          mkdir -p "$LINUX_DIR/net/nat"
-          ln -sfn "$HW_NAT_DIR" "$LINUX_DIR/net/nat/hw_nat"
-        fi
-        
+        # НЕ трогаем Kconfig (padavan-ng сам использует olddefconfig)
         make dep
-        # При сбое перезапускаем через корневой make -j1 (чтобы сработали все цели из trunk/Makefile и точная ошибка попала в конец лога)
-        make || make -j1
+        if ! make 2>&1 | tee /tmp/build.log; then
+          echo "=== ТОЧНАЯ ПРИЧИНА ОШИБКИ СБОРКИ ==="
+          grep -n -C 5 -iE "fatal error:|error:" /tmp/build.log | tail -n 40
+          exit 1
+        fi
         
         sudo mv -f images/*.trx /opt/images/
 
