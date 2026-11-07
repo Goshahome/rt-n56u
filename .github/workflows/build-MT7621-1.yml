@@ -8,36 +8,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Find and inspect Padavan 4.4 repository
+    - name: Read build rules and MI-R3G 0x200000 partition layout
       run: |
         BASE="https://github.com"
-        REPO_URL=""
-        for repo in \
-          "tsl0922/padavan-4.4.git" \
-          "padavan-4.4/padavan-4.4.git" \
-          "Linaro1985/padavan-4.4.git" \
-          "vb1980/padavan-4.4.git"; do
-          if git ls-remote "${BASE}/${repo}" HEAD >/dev/null 2>&1; then
-            REPO_URL="${BASE}/${repo}"
-            echo "Найден живой репозиторий 4.4: $REPO_URL"
-            break
-          fi
-        done
-
-        if [ -z "$REPO_URL" ]; then
-          echo "Ни один из проверенных URL не доступен."
-          exit 1
-        fi
-
-        git clone --depth=1 "$REPO_URL" padavan-4.4
+        git clone --depth=1 "${BASE}/tsl0922/padavan-4.4.git" padavan-4.4
         cd padavan-4.4
 
-        echo "=== 1. КОРЕНЬ РЕПОЗИТОРИЯ И TRUNK ==="
-        ls -la
-        ls -la trunk/
+        echo "=== 1. КОРНЕВОЙ Makefile И WORKFLOWS ==="
+        cat Makefile
+        ls -la .github/workflows/ || true
+        cat .github/workflows/* 2>/dev/null || true
 
-        echo "=== 2. ПЛАТЫ НА 128M NAND (R6220 / RM2100 / MI-R3G / SMBX) ==="
-        find trunk/configs -iname "*r6220*" -o -iname "*rm2100*" -o -iname "*mi-r3g*" -o -iname "*smbx*"
+        echo "=== 2. РАЗМЕТКА РАЗДЕЛОВ В mtk_partition.h ==="
+        cat trunk/linux-4.4.x/drivers/mtd/nand/mtk_partition.h
 
-        echo "=== 3. РАЗМЕТКА РАЗДЕЛОВ В ЯДРЕ 4.4 ==="
-        find trunk/linux-4.4.x/drivers/mtd -maxdepth 2 -iname "*part*" -o -iname "*mtd*" 2>/dev/null
+        echo "=== 3. НАСТРОЙКИ ПЛАТЫ MI-R3G ==="
+        cat trunk/configs/boards/MI-R3G/board.mk
+        cat trunk/configs/templates/MI-R3G.config
