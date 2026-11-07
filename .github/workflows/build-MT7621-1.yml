@@ -36,15 +36,8 @@ jobs:
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # Находим и копируем родной профиль конфигурации Smart Box Turbo+ (SMBXTURBO)
-        CONFIG_FILE=$(find configs -iname "*SMBXTURBO*.config" | head -n 1)
-        if [ -z "$CONFIG_FILE" ]; then
-          echo "Файл конфигурации для SMBXTURBO не найден!"
-          find configs -type f
-          exit 1
-        fi
-        echo "Используем конфигурацию: $CONFIG_FILE"
-        cp -f "$CONFIG_FILE" .config
+        # Копируем найденный родной профиль Smart Box Turbo+ в корень и в дефолтный шаблон
+        cp -f configs/templates/sercomm/smbxturbo.config .config
         
         # Прописываем путь к свежесобранному тулчейну
         cwd=`pwd`
@@ -61,8 +54,8 @@ jobs:
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
         
-        # Классическая сборка прошивки Padavan через make
-        make clean
+        # Запускаем штатную сборку Padavan через последовательный вызов целевых правил Makefile
+        make dep
         make -j$(nproc)
         
         sudo mv -f images/*.trx /opt/images/
