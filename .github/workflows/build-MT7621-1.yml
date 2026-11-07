@@ -29,6 +29,13 @@ jobs:
         sudo chmod +x build_toolchain.sh
         ./build_toolchain.sh
         
+        # Находим реальный путь к собранному компилятору mipsel-linux-uclibc-gcc
+        GCC_PATH=$(find "$(pwd)" -name "mipsel-linux-uclibc-gcc" -type f | head -n 1)
+        TOOLCHAIN_BIN_DIR=$(dirname "$GCC_PATH")
+        TOOLCHAIN_ROOT_DIR=$(dirname "$TOOLCHAIN_BIN_DIR")
+        echo "Найден тулчейн: $TOOLCHAIN_ROOT_DIR"
+        export PATH="$TOOLCHAIN_BIN_DIR:$PATH"
+        
         # 2. Переходим в папку trunk для сборки прошивки
         cd ../trunk
         
@@ -39,18 +46,17 @@ jobs:
         # Копируем родной профиль Smart Box Turbo+
         cp -f configs/templates/sercomm/smbxturbo.config .config
         
-        # Находим и копируем базовый конфиг ядра для платы smbxturbo в папку linux-3.4.x
+        # Находим и копируем базовый конфиг ядра для платы smbxturbo
         KERNEL_CFG=$(find configs/boards -ipath "*smbxturbo*" -name "kernel*.config" | head -n 1)
         if [ -z "$KERNEL_CFG" ]; then
           KERNEL_CFG=$(find configs/boards -name "kernel-3.4.x.config" | head -n 1)
         fi
-        echo "Используем конфиг ядра: $KERNEL_CFG"
         cp -f "$KERNEL_CFG" linux-3.4.x/.config
         
-        # Прописываем путь к свежесобранному тулчейну
-        cwd=`pwd`
-        CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/..\\/toolchain\\/out
-        sed -i "s|^CONFIG_TOOLCHAIN_DIR=.*|CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}|g" .config
+        # Жестко прописываем найденный путь к тулчейну в .config (в обе возможные переменные)
+        ESCAPED_ROOT=$(echo "$TOOLCHAIN_ROOT_DIR" | sed 's/\//\\\//g')
+        sed -i "s|^CONFIG_TOOLCHAIN_DIR=.*|CONFIG_TOOLCHAIN_DIR=\"${ESCAPED_ROOT}\"|g" .config
+        echo "CONFIG_TOOLCHAIN_DIR=\"${TOOLCHAIN_ROOT_DIR}\"" >> .config
         
         # Заглушка версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
@@ -62,9 +68,9 @@ jobs:
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
         
-        # Запускаем штатную сборку Padavan
-        make dep
-        make -j$(nproc)
+        # Запускаем штатную сборку Padavan с явной передачей пути к компилятору
+        make CONFIG_TOOLCHAIN_DIR="$TOOLCHAIN_ROOT_DIR" CROSS_COMPILE="$TOOLCHAIN_BIN_DIR/mipsel-linux-uclibc-" dep
+        make CONFIG_TOOLCHAIN_DIR="$TOOLCHAIN_ROOT_DIR" CROSS_COMPILE="$TOOLCHAIN_BIN_DIR/mipsel-linux-uclibc-" -j$(nproc)
         
         sudo mv -f images/*.trx /opt/images/
 
