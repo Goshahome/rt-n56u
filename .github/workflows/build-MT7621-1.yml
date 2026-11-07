@@ -49,7 +49,6 @@ jobs:
 
     - name: Build Firmware
       run: |
-        set -o pipefail
         GCC_PATH=$(find "$(pwd)/padavan-ng/toolchain" -name "mipsel-linux-uclibc-gcc" -type f | head -n 1)
         TOOLCHAIN_BIN_DIR=$(dirname "$GCC_PATH")
         TOOLCHAIN_ROOT_DIR=$(dirname "$TOOLCHAIN_BIN_DIR")
@@ -70,7 +69,6 @@ jobs:
         
         cd padavan-ng/trunk
         
-        # Очищаем от Go и фиксим известные баги библиотек
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
@@ -83,16 +81,15 @@ jobs:
           sed -i "/^all:/a\\${TAB}/tmp/fix_tirpc.sh" libs/libtirpc/Makefile
         fi
         
-        # Копируем родной профиль Smart Box Turbo+
         cp -f configs/templates/sercomm/smbxturbo.config .config
         
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_E2FSPROGS=y/# CONFIG_FIRMWARE_INCLUDE_E2FSPROGS is not set/g' .config
         sed -i 's/e2fsprogs//g' user/Makefile
         
-        LINUX_DIR=$(grep '^CONFIG_LINUXDIR=' .config | cut -d'=' -f2 | tr -d '"')
+        LINUX_DIR=$(grep '^CONFIG_LINUXDIR=' .config | cut -d'=' -f2 | tr -d '"') || true
         [ -z "$LINUX_DIR" ] && LINUX_DIR="linux-3.4.x"
         
-        KCFG_NAME=$(grep '^CONFIG_FIRMWARE_KERNEL_CONFIG=' .config | cut -d'=' -f2 | tr -d '"')
+        KCFG_NAME=$(grep '^CONFIG_FIRMWARE_KERNEL_CONFIG=' .config | cut -d'=' -f2 | tr -d '"') || true
         KERNEL_CFG=""
         if [ -n "$KCFG_NAME" ]; then
           KERNEL_CFG=$(find configs/boards -name "$KCFG_NAME" | head -n 1)
@@ -103,12 +100,10 @@ jobs:
         if [ -z "$KERNEL_CFG" ]; then
           KERNEL_CFG=$(find configs/boards -name "kernel-3.4.x.config" | head -n 1)
         fi
-        echo "Используем конфиг ядра: $KERNEL_CFG"
         cp -f "$KERNEL_CFG" "$LINUX_DIR/.config"
         
-        # Активируем CONFIG_RA_HW_NAT и подключаем оригинальную папку hw_nat
         sed -i 's/# CONFIG_RA_HW_NAT is not set/CONFIG_RA_HW_NAT=m/g' "$LINUX_DIR/.config"
-        HW_NAT_DIR=$(find "$(pwd)" -maxdepth 4 -type d -name "hw_nat" | grep -v "$LINUX_DIR/net/nat/hw_nat" | head -n 1)
+        HW_NAT_DIR=$(find "$(pwd)" -maxdepth 4 -type d -name "hw_nat" | head -n 1)
         if [ -n "$HW_NAT_DIR" ] && [ ! -e "$LINUX_DIR/net/nat/hw_nat" ]; then
           mkdir -p "$LINUX_DIR/net/nat"
           ln -sfn "$HW_NAT_DIR" "$LINUX_DIR/net/nat/hw_nat"
@@ -121,11 +116,11 @@ jobs:
         echo 'echo ""' >> "$LINUX_DIR/scripts/setlocalversion"
         chmod +x "$LINUX_DIR/scripts/setlocalversion"
         
-        # НЕ трогаем Kconfig (padavan-ng сам использует olddefconfig)
         make dep
-        if ! make 2>&1 | tee /tmp/build.log; then
+        make 2>&1 | tee /tmp/build.log
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
           echo "=== ТОЧНАЯ ПРИЧИНА ОШИБКИ СБОРКИ ==="
-          grep -n -C 5 -iE "fatal error:|error:" /tmp/build.log | tail -n 40
+          grep -n -C 5 -iE "fatal error:|error:" /tmp/build.log | tail -n 40 || true
           exit 1
         fi
         
