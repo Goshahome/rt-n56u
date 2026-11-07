@@ -10,14 +10,15 @@ jobs:
     steps:
     - name: Find and inspect Padavan 4.4 repository
       run: |
+        BASE="https://github.com"
         REPO_URL=""
-        for url in \
-          "https://github.com" \
-          "https://github.com" \
-          "https://github.com" \
-          "https://github.com"; do
-          if git ls-remote "$url" HEAD >/dev/null 2>&1; then
-            REPO_URL="$url"
+        for repo in \
+          "tsl0922/padavan-4.4.git" \
+          "padavan-4.4/padavan-4.4.git" \
+          "Linaro1985/padavan-4.4.git" \
+          "vb1980/padavan-4.4.git"; do
+          if git ls-remote "${BASE}/${repo}" HEAD >/dev/null 2>&1; then
+            REPO_URL="${BASE}/${repo}"
             echo "Найден живой репозиторий 4.4: $REPO_URL"
             break
           fi
