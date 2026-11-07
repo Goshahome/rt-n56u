@@ -29,7 +29,7 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo apt-get update
-        sudo apt-get -y install libtool-bin gperf python3-docutils autopoint gettext ccache
+        sudo apt-get -y install libtool-bin libltdl-dev gperf python3-docutils autopoint gettext ccache
 
     - name: Configure and Build MI-R3G (Kernel 4.4, 128MB RAM, 0x200000)
       working-directory: padavan-4.4
@@ -39,7 +39,7 @@ jobs:
         # 1. Исправляем объём ОЗУ под Smart Box Turbo+ (128 МБ вместо 256 МБ)
         sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$CFG"
         
-        # 2. Убираем -Werror в драйвере Wi-Fi mt76x3 и ядре 4.4 (устраняет ошибку misleading-indentation)
+        # 2. Убираем -Werror в драйвере Wi-Fi mt76x3 и ядре 4.4
         find trunk/linux-4.4.x/drivers/net/wireless/mediatek -name "Makefile" -exec sed -i 's/-Werror/-Wno-error/g' {} +
         sed -i 's/-Werror=misleading-indentation/-Wno-misleading-indentation/g' trunk/linux-4.4.x/Makefile
         
