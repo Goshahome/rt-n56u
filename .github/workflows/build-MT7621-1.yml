@@ -8,12 +8,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check available partition layouts in padavan-ng
+    - name: Check 128M partition tables
       run: |
         git clone --depth=1 https://gitlab.com/hadzhioglu/padavan-ng.git padavan-ng
         cd padavan-ng/trunk/configs/boards
-        echo "=== 1. ВСЕ ФАЙЛЫ ТАБЛИЦ РАЗДЕЛОВ (pt_*.config / partitions.config) ==="
-        find . -name "*pt_*.config" -o -name "partitions.config"
-        echo "=== 2. ПЛАТЫ NETGEAR И ИХ РАЗМЕТКА ==="
-        find . -iname "*r6220*" -o -iname "*netgear*"
-        cat NETGEAR/R6220/partitions.config 2>/dev/null || find . -iname "*r6220*" -exec head -n 50 {} +
+        echo "=== 1. SERCOMM/SMBXPRONAND ==="
+        cat SERCOMM/SMBXPRONAND/partitions.config || true
+        echo "=== 2. XIAOMI/pt_xiaomi_128m_smalluboot ==="
+        cat XIAOMI/pt_xiaomi_128m_smalluboot.config || true
+        echo "=== 3. ZYXEL/pt_zyxel_128m ==="
+        cat ZYXEL/pt_zyxel_128m.config || true
