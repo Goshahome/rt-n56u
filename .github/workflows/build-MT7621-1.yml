@@ -52,7 +52,6 @@ jobs:
         GCC_PATH=$(find "$(pwd)/padavan-ng/toolchain" -name "mipsel-linux-uclibc-gcc" -type f | head -n 1)
         TOOLCHAIN_BIN_DIR=$(dirname "$GCC_PATH")
         TOOLCHAIN_ROOT_DIR=$(dirname "$TOOLCHAIN_BIN_DIR")
-        echo "Найден тулчейн: $TOOLCHAIN_ROOT_DIR"
         export PATH="$TOOLCHAIN_BIN_DIR:$PATH"
         
         sudo ln -sf "$TOOLCHAIN_BIN_DIR"/mipsel-linux-uclibc-* /bin/
@@ -82,30 +81,47 @@ jobs:
           sed -i "/^all:/a\\${TAB}/tmp/fix_tirpc.sh" libs/libtirpc/Makefile
         fi
         
+        # Копируем родной профиль Smart Box Turbo+
         cp -f configs/templates/sercomm/smbxturbo.config .config
         
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_E2FSPROGS=y/# CONFIG_FIRMWARE_INCLUDE_E2FSPROGS is not set/g' .config
         sed -i 's/e2fsprogs//g' user/Makefile
         
-        KERNEL_CFG=$(find configs/boards -ipath "*smbxturbo*" -name "kernel*.config" | head -n 1)
+        LINUX_DIR=$(grep '^CONFIG_LINUXDIR=' .config | cut -d'=' -f2 | tr -d '"')
+        [ -z "$LINUX_DIR" ] && LINUX_DIR="linux-3.4.x"
+        
+        KCFG_NAME=$(grep '^CONFIG_FIRMWARE_KERNEL_CONFIG=' .config | cut -d'=' -f2 | tr -d '"')
+        KERNEL_CFG=$(find configs/boards -name "$KCFG_NAME" | head -n 1)
         if [ -z "$KERNEL_CFG" ]; then
-          KERNEL_CFG=$(find configs/boards -name "kernel-3.4.x.config" | head -n 1)
+          KERNEL_CFG=$(find configs/boards/sercomm -name "kernel*.config" | head -n 1)
         fi
-        cp -f "$KERNEL_CFG" linux-3.4.x/.config
+        cp -f "$KERNEL_CFG" "$LINUX_DIR/.config"
         
         ESCAPED_ROOT=$(echo "$TOOLCHAIN_ROOT_DIR" | sed 's/\//\\\//g')
         sed -i "s|^CONFIG_TOOLCHAIN_DIR=.*|CONFIG_TOOLCHAIN_DIR=\"${ESCAPED_ROOT}\"|g" .config
         
-        echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
-        echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
-        chmod +x linux-3.4.x/scripts/setlocalversion
+        echo '#!/bin/sh' > "$LINUX_DIR/scripts/setlocalversion"
+        echo 'echo ""' >> "$LINUX_DIR/scripts/setlocalversion"
+        chmod +x "$LINUX_DIR/scripts/setlocalversion"
         
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/scripts/kconfig/Makefile
+        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' "$LINUX_DIR/scripts/kconfig/Makefile"
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
-        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
+        sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' "$LINUX_DIR/Makefile"
+        
+        # Запускаем make config (если цель есть), чтобы создались штатные симлинки hw_nat
+        make config || true
+        
+        # Если ra_nat.h всё ещё не появился по относительному пути, копируем настоящий файл из репозитория
+        if [ ! -f "$LINUX_DIR/net/nat/hw_nat/ra_nat.h" ]; then
+          REAL_RA_NAT=$(find .. -name "ra_nat.h" | head -n 1)
+          if [ -n "$REAL_RA_NAT" ]; then
+            mkdir -p "$LINUX_DIR/net/nat/hw_nat"
+            cp -f "$REAL_RA_NAT" "$LINUX_DIR/net/nat/hw_nat/ra_nat.h"
+          fi
+        fi
         
         make dep
-        make
+        make || make V=1 -j1
         
         sudo mv -f images/*.trx /opt/images/
 
