@@ -8,17 +8,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Inspect DTS and 128M boards in Padavan 4.4
+    - name: Check mtk_partition.h and NETGEAR-BZV config
       run: |
         BASE="https://github.com"
         git clone --depth=1 "${BASE}/tsl0922/padavan-4.4.git" padavan-4.4
         cd padavan-4.4/trunk
 
-        echo "=== 1. ВСЕ .DTS ФАЙЛЫ В ЯДРЕ 4.4 ==="
-        ls -la linux-4.4.x/arch/mips/boot/dts/ralink/
+        echo "=== 1. mtk_partition.h ==="
+        cat linux-4.4.x/drivers/mtd/nand/mtk_partition.h
 
-        echo "=== 2. ВСЕ ПЛАТЫ В configs/boards ==="
-        find configs/boards -maxdepth 2
+        echo "=== 2. NETGEAR-BZV board.mk и template ==="
+        cat configs/boards/NETGEAR-BZV/board.mk
+        cat configs/templates/NETGEAR-BZV.config
 
-        echo "=== 3. ПЛАТЫ БЕЗ GPT (ИЩЕМ 0x200000 ИЛИ R6220 / NEWIFI / ZYXEL / SERCOMM) ==="
-        grep -rn "0x200000\|R6220\|SERCOMM\|SMBX" configs/boards/ linux-4.4.x/drivers/mtd/nand/ || true
+        echo "=== 3. netgear-bzv.dts ==="
+        cat linux-4.4.x/arch/mips/boot/dts/ralink/netgear-bzv.dts
