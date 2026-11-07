@@ -36,8 +36,16 @@ jobs:
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # Копируем найденный родной профиль Smart Box Turbo+ в корень и в дефолтный шаблон
+        # Копируем родной профиль Smart Box Turbo+
         cp -f configs/templates/sercomm/smbxturbo.config .config
+        
+        # Находим и копируем базовый конфиг ядра для платы smbxturbo в папку linux-3.4.x
+        KERNEL_CFG=$(find configs/boards -ipath "*smbxturbo*" -name "kernel*.config" | head -n 1)
+        if [ -z "$KERNEL_CFG" ]; then
+          KERNEL_CFG=$(find configs/boards -name "kernel-3.4.x.config" | head -n 1)
+        fi
+        echo "Используем конфиг ядра: $KERNEL_CFG"
+        cp -f "$KERNEL_CFG" linux-3.4.x/.config
         
         # Прописываем путь к свежесобранному тулчейну
         cwd=`pwd`
@@ -54,7 +62,7 @@ jobs:
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
         
-        # Запускаем штатную сборку Padavan через последовательный вызов целевых правил Makefile
+        # Запускаем штатную сборку Padavan
         make dep
         make -j$(nproc)
         
