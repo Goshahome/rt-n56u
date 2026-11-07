@@ -8,13 +8,156 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check 128M partition tables
+    - name: Checkout padavan-ng from GitLab
       run: |
         git clone --depth=1 https://gitlab.com/hadzhioglu/padavan-ng.git padavan-ng
-        cd padavan-ng/trunk/configs/boards
-        echo "=== 1. SERCOMM/SMBXPRONAND ==="
-        cat SERCOMM/SMBXPRONAND/partitions.config || true
-        echo "=== 2. XIAOMI/pt_xiaomi_128m_smalluboot ==="
-        cat XIAOMI/pt_xiaomi_128m_smalluboot.config || true
-        echo "=== 3. ZYXEL/pt_zyxel_128m ==="
-        cat ZYXEL/pt_zyxel_128m.config || true
+        mkdir -p /opt/images/
+
+    - name: Initialization environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
+        cpio git python3-docutils gettext automake autopoint texinfo build-essential help2man \
+        pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
+
+    - name: Restore Toolchain Cache
+      id: cache-toolchain
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          padavan-ng/toolchain/out
+          padavan-ng/toolchain/opt
+        key: toolchain-mipsel-padavan-ng-v3
+
+    - name: Build Toolchain
+      if: steps.cache-toolchain.outputs.cache-hit != 'true'
+      run: |
+        cd padavan-ng/toolchain
+        sudo chmod +x build_toolchain.sh
+        ./build_toolchain.sh
+
+    - name: Save Toolchain Cache
+      if: always() && steps.cache-toolchain.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          padavan-ng/toolchain/out
+          padavan-ng/toolchain/opt
+        key: toolchain-mipsel-padavan-ng-v3
+
+    - name: Build Firmware
+      run: |
+        GCC_PATH=$(find "$(pwd)/padavan-ng/toolchain" -name "mipsel-linux-uclibc-gcc" -type f | head -n 1)
+        TOOLCHAIN_BIN_DIR=$(dirname "$GCC_PATH")
+        TOOLCHAIN_ROOT_DIR=$(dirname "$TOOLCHAIN_BIN_DIR")
+        export PATH="$TOOLCHAIN_BIN_DIR:$PATH"
+        
+        sudo ln -sf "$TOOLCHAIN_BIN_DIR"/mipsel-linux-uclibc-* /bin/
+        sudo ln -sf "$TOOLCHAIN_BIN_DIR"/mipsel-linux-uclibc-* /usr/local/bin/
+        
+        printf 'with_python=no\nwith_python3=no\nPTHREAD_LIBS=-lpthread\nax_cv_PTHREAD_LIBS=-lpthread\n' > /tmp/padavan_config.site
+        export CONFIG_SITE=/tmp/padavan_config.site
+        export PTHREAD_LIBS=-lpthread
+        
+        cat << 'EOF' > /tmp/fix_tirpc.sh
+        #!/bin/sh
+        find . -name "Makefile" -exec sed -i 's/@PTHREAD_LIBS@/-lpthread/g; s/PTHREAD_LIBS@/-lpthread/g' {} +
+        EOF
+        chmod +x /tmp/fix_tirpc.sh
+        
+        cd padavan-ng/trunk
+        
+        # 1. Фиксим сборку инструментов и библиотек
+        sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
+        sed -i 's/dir_go//g' tools/Makefile
+        
+        if [ -f libs/libcap-ng/Makefile ]; then
+          sed -i 's/--without-python\b/--without-python --without-python3/g' libs/libcap-ng/Makefile
+        fi
+        
+        if [ -f libs/libtirpc/Makefile ]; then
+          TAB=$(printf '\t')
+          sed -i "/^all:/a\\${TAB}/tmp/fix_tirpc.sh" libs/libtirpc/Makefile
+        fi
+        
+        # 2. Восстанавливаем правильную ссылку на hw_nat (ra_nat.h)
+        rm -rf linux-3.4.x/net/nat/hw_nat
+        mkdir -p linux-3.4.x/net/nat
+        ln -sfn ../../../proprietary/rt_ppe/hw_nat linux-3.4.x/net/nat/hw_nat
+        
+        # 3. Заменяем разметку разделов SMBXTURBO под загрузчик breed-mt7621-r6220 (Firmware по адресу 0x200000)
+        rm -f configs/boards/SERCOMM/SMBXTURBO/partitions.config
+        cat << 'EOF' > configs/boards/SERCOMM/SMBXTURBO/partitions.config
+        {
+        	name:	"Bootloader",
+        	offset:	0x0,
+        	size:	0x80000,
+        }, {
+        	name:	"BootEnv",
+        	offset: 0x80000,
+        	size:	0x80000,
+        }, {
+        	name:	"Factory",
+        	offset:	0x100000,
+        	size:	0x40000,
+        }, {
+        	name:	"crash",
+        	offset:	0x140000,
+        	size:	0x40000,
+        }, {
+        	name:	"crash_syslog",
+        	offset:	0x180000,
+        	size:	0x40000,
+        }, {
+        	name:	"reserved0",
+        	offset:	0x1C0000,
+        	size:	0x40000,
+        }, {
+        	name:	"Firmware",
+        	offset:	0x200000,
+        	size:	0x1800000,
+        }, {
+        	name:	"Config",
+        	offset:	0x1A00000,
+        	size:	0x100000,
+        }, {
+        	name:	"Storage",
+        	offset:	0x1B00000,
+        	size:	0x400000,
+        }, {
+        	name:	"RWFS",
+        	offset:	0x1F00000,
+        	size:	0x6080000,
+        }
+        EOF
+        
+        # 4. Копируем родной профиль Smart Box Turbo+ и отключаем e2fsprogs
+        cp -f configs/templates/sercomm/smbxturbo.config .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_E2FSPROGS=y/# CONFIG_FIRMWARE_INCLUDE_E2FSPROGS is not set/g' .config
+        sed -i 's/e2fsprogs//g' user/Makefile
+        
+        ESCAPED_ROOT=$(echo "$TOOLCHAIN_ROOT_DIR" | sed 's/\//\\\//g')
+        sed -i "s|^CONFIG_TOOLCHAIN_DIR=.*|CONFIG_TOOLCHAIN_DIR=\"${ESCAPED_ROOT}\"|g" .config
+        
+        echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
+        echo 'echo ""' >> linux-3.4.x/scripts/setlocalversion
+        chmod +x linux-3.4.x/scripts/setlocalversion
+        
+        # 5. Запускаем штатный скрипт сборки автора padavan-ng
+        chmod +x ./build_firmware.sh
+        ./build_firmware.sh 2>&1 | tee /tmp/build.log
+        if [ ${PIPESTATUS} -ne 0 ]; then
+          echo "=== ТОЧНАЯ ПРИЧИНА ОШИБКИ СБОРКИ ==="
+          grep -n -C 5 -iE "fatal error:|error:" /tmp/build.log | tail -n 40 || true
+          exit 1
+        fi
+        
+        sudo mv -f images/*.trx /opt/images/
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Padavan_SmartBox_Turbo_Plus_New_NG
+        path: /opt/images/*.trx
