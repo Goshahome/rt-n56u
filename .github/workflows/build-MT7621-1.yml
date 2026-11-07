@@ -81,7 +81,6 @@ jobs:
           sed -i "/^all:/a\\${TAB}/tmp/fix_tirpc.sh" libs/libtirpc/Makefile
         fi
         
-        # Копируем родной профиль Smart Box Turbo+
         cp -f configs/templates/sercomm/smbxturbo.config .config
         
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_E2FSPROGS=y/# CONFIG_FIRMWARE_INCLUDE_E2FSPROGS is not set/g' .config
@@ -91,10 +90,17 @@ jobs:
         [ -z "$LINUX_DIR" ] && LINUX_DIR="linux-3.4.x"
         
         KCFG_NAME=$(grep '^CONFIG_FIRMWARE_KERNEL_CONFIG=' .config | cut -d'=' -f2 | tr -d '"')
-        KERNEL_CFG=$(find configs/boards -name "$KCFG_NAME" | head -n 1)
-        if [ -z "$KERNEL_CFG" ]; then
-          KERNEL_CFG=$(find configs/boards/sercomm -name "kernel*.config" | head -n 1)
+        KERNEL_CFG=""
+        if [ -n "$KCFG_NAME" ]; then
+          KERNEL_CFG=$(find configs/boards -name "$KCFG_NAME" | head -n 1)
         fi
+        if [ -z "$KERNEL_CFG" ]; then
+          KERNEL_CFG=$(find configs/boards -ipath "*smbxturbo*" -name "kernel*.config" | head -n 1)
+        fi
+        if [ -z "$KERNEL_CFG" ]; then
+          KERNEL_CFG=$(find configs/boards -name "kernel-3.4.x.config" | head -n 1)
+        fi
+        echo "Используем конфиг ядра: $KERNEL_CFG"
         cp -f "$KERNEL_CFG" "$LINUX_DIR/.config"
         
         ESCAPED_ROOT=$(echo "$TOOLCHAIN_ROOT_DIR" | sed 's/\//\\\//g')
@@ -108,10 +114,8 @@ jobs:
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' "$LINUX_DIR/Makefile"
         
-        # Запускаем make config (если цель есть), чтобы создались штатные симлинки hw_nat
         make config || true
         
-        # Если ra_nat.h всё ещё не появился по относительному пути, копируем настоящий файл из репозитория
         if [ ! -f "$LINUX_DIR/net/nat/hw_nat/ra_nat.h" ]; then
           REAL_RA_NAT=$(find .. -name "ra_nat.h" | head -n 1)
           if [ -n "$REAL_RA_NAT" ]; then
