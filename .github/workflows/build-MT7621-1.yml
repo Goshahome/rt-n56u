@@ -8,15 +8,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Inspect 128M boards and partition files
+    - name: Inspect Padavan 4.4 repository (hanwckf)
       run: |
-        cd trunk
-        echo "=== 1. ВСЕ ПЛАТЫ В configs/boards ==="
-        find configs/boards -maxdepth 3
-        echo "=== 2. ВСЕ ФАЙЛЫ РАЗМЕТКИ РАЗДЕЛОВ ==="
-        find configs/boards linux-3.4.x/drivers/mtd -iname "*part*" -o -iname "*mtd*" 2>/dev/null
-        echo "=== 3. ПЛАТЫ НА 128M NAND (RM2100 / R6220 / MI-R3G / SMBX) ==="
-        grep -rn "0x200000" configs/boards/ || true
+        git clone --depth=1 https://github.com padavan-4.4
+        cd padavan-4.4
+        
+        echo "=== 1. КОРЕНЬ РЕПОЗИТОРИЯ И ВЕРСИИ ЯДЕР ==="
+        ls -la
+        ls -la trunk/
+        
+        echo "=== 2. ПЛАТЫ НА 128M NAND (RM2100 / R6220 / MI-R3G / SMBX) ==="
+        find trunk/configs -iname "*rm2100*" -o -iname "*r6220*" -o -iname "*mi-r3g*" -o -iname "*smbx*"
+        
+        echo "=== 3. ФАЙЛЫ РАЗМЕТКИ РАЗДЕЛОВ В ЯДРЕ 4.4 ==="
+        find trunk/linux-4.4.x/drivers/mtd -maxdepth 2 -iname "*part*" -o -iname "*mtd*" 2>/dev/null
