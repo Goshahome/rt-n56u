@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout custom toolchain from GitLab
+    - name: Checkout padavan-ng from GitLab
       run: |
         git clone --depth=1 https://gitlab.com/hadzhioglu/padavan-ng.git padavan-ng
         mkdir -p /opt/images/
@@ -22,30 +22,46 @@ jobs:
         cpio git python3-docutils gettext automake autopoint texinfo build-essential help2man \
         pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
 
-    - name: Build Firmware
+    - name: Cache Toolchain
+      id: cache-toolchain
+      uses: actions/cache@v4
+      with:
+        path: |
+          padavan-ng/toolchain/out
+          padavan-ng/toolchain/opt
+        key: toolchain-mipsel-padavan-ng-v2
+
+    - name: Build Toolchain
+      if: steps.cache-toolchain.outputs.cache-hit != 'true'
       run: |
-        # 1. Собираем кросс-компилятор (тулчейн)
         cd padavan-ng/toolchain
         sudo chmod +x build_toolchain.sh
         ./build_toolchain.sh
-        
-        # Находим реальный путь к собранному компилятору mipsel-linux-uclibc-gcc
-        GCC_PATH=$(find "$(pwd)" -name "mipsel-linux-uclibc-gcc" -type f | head -n 1)
+
+    - name: Build Firmware
+      run: |
+        # 1. Находим реальный путь к собранному компилятору mipsel-linux-uclibc-gcc
+        GCC_PATH=$(find "$(pwd)/padavan-ng/toolchain" -name "mipsel-linux-uclibc-gcc" -type f | head -n 1)
         TOOLCHAIN_BIN_DIR=$(dirname "$GCC_PATH")
         TOOLCHAIN_ROOT_DIR=$(dirname "$TOOLCHAIN_BIN_DIR")
         echo "Найден тулчейн: $TOOLCHAIN_ROOT_DIR"
         export PATH="$TOOLCHAIN_BIN_DIR:$PATH"
         
-        # 2. Переходим в папку trunk для сборки прошивки
-        cd ../trunk
+        # 2. Настраиваем CONFIG_SITE для отключения Python 2/3 во всех скриптах ./configure
+        printf 'with_python=no\nwith_python3=no\n' > /tmp/padavan_config.site
+        export CONFIG_SITE=/tmp/padavan_config.site
+        
+        # 3. Переходим в trunk
+        cd padavan-ng/trunk
         
         # Очищаем сборку от Go
         sed -i '/go_build:/,/^[a-zA-Z]/ { /go_build:/! { /^[a-zA-Z]/!d } }' tools/Makefile
         sed -i 's/dir_go//g' tools/Makefile
         
-        # Отключаем сборку привязок Python 3 в libcap-ng (убирает ошибку libtool: cannot build a shared library)
-        sed -i 's/--without-python/--without-python --without-python3/g' libs/libcap-ng/Makefile
-        sed -i 's/\.\/configure /.\//; s/configure /configure --without-python3 /g' libs/libcap-ng/Makefile
+        # Безопасно добавляем --without-python3 в libs/libcap-ng/Makefile рядом с --without-python (без поломки синтаксиса)
+        if [ -f libs/libcap-ng/Makefile ]; then
+          sed -i 's/--without-python\b/--without-python --without-python3/g' libs/libcap-ng/Makefile
+        fi
         
         # Копируем родной профиль Smart Box Turbo+
         cp -f configs/templates/sercomm/smbxturbo.config .config
@@ -57,10 +73,9 @@ jobs:
         fi
         cp -f "$KERNEL_CFG" linux-3.4.x/.config
         
-        # Жестко прописываем найденный путь к тулчейну в .config
+        # Прописываем путь к тулчейну в .config
         ESCAPED_ROOT=$(echo "$TOOLCHAIN_ROOT_DIR" | sed 's/\//\\\//g')
         sed -i "s|^CONFIG_TOOLCHAIN_DIR=.*|CONFIG_TOOLCHAIN_DIR=\"${ESCAPED_ROOT}\"|g" .config
-        echo "CONFIG_TOOLCHAIN_DIR=\"${TOOLCHAIN_ROOT_DIR}\"" >> .config
         
         # Заглушка версий Git (убирает ошибку превышения 64 символов)
         echo '#!/bin/sh' > linux-3.4.x/scripts/setlocalversion
@@ -72,9 +87,14 @@ jobs:
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' Makefile
         sed -i 's/silentoldconfig/oldnoconfig silentoldconfig/g' linux-3.4.x/Makefile
         
-        # Запускаем штатную сборку Padavan с явной передачей пути к компилятору
-        make CONFIG_TOOLCHAIN_DIR="$TOOLCHAIN_ROOT_DIR" CROSS_COMPILE="$TOOLCHAIN_BIN_DIR/mipsel-linux-uclibc-" dep
-        make CONFIG_TOOLCHAIN_DIR="$TOOLCHAIN_ROOT_DIR" CROSS_COMPILE="$TOOLCHAIN_BIN_DIR/mipsel-linux-uclibc-" -j$(nproc)
+        # Если в trunk есть штатный скрипт сборки (build_firmware.sh), используем его; иначе — штатный make
+        if [ -f ./build_firmware.sh ]; then
+          chmod +x ./build_firmware.sh
+          ./build_firmware.sh
+        else
+          make CONFIG_TOOLCHAIN_DIR="$TOOLCHAIN_ROOT_DIR" CROSS_COMPILE="$TOOLCHAIN_BIN_DIR/mipsel-linux-uclibc-" dep
+          make CONFIG_TOOLCHAIN_DIR="$TOOLCHAIN_ROOT_DIR" CROSS_COMPILE="$TOOLCHAIN_BIN_DIR/mipsel-linux-uclibc-" -j$(nproc)
+        fi
         
         sudo mv -f images/*.trx /opt/images/
 
