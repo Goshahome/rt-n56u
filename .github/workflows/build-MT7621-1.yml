@@ -31,12 +31,15 @@ jobs:
         sudo apt-get update
         sudo apt-get -y install libtool-bin libltdl-dev gperf python3-docutils autopoint gettext ccache
 
-    - name: Configure and Build SmartBox 4.4 (MT7603E + MT7615E, SMBD, uClibc, 128MB, 0x200000)
+    - name: Configure and Build SmartBox 4.4 (MT7603E + MT7615E, SMBD, 128MB, 0x200000)
       working-directory: padavan-4.4
       run: |
         CFG="trunk/configs/templates/NETGEAR-BZV.config"
         KCFG="trunk/configs/boards/NETGEAR-BZV/kernel-4.4.x.config"
         DTS="trunk/linux-4.4.x/arch/mips/boot/dts/ralink/netgear-bzv.dts"
+        
+        # 0. Добавляем ретраи в curl при скачивании тулчейна (защита от 504)
+        sed -i 's/curl -fSL/curl --retry 5 --retry-delay 5 -fSL/g' toolchain/Makefile
         
         # 1. Исправляем объём ОЗУ под Smart Box Turbo+ (128 МБ)
         sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$CFG"
@@ -46,11 +49,9 @@ jobs:
         sed -i 's/label = "Factory";/label = "Factory_orig";/' "$DTS"
         sed -i '0,/label = "Factory_orig";/{s/label = "Factory_orig";/label = "Factory";/}' "$DTS"
         
-        # 3. Включаем связку MT7603E (2.4 ГГц) + MT7615E (5 ГГц) в конфиге ядра NETGEAR-BZV
+        # 3. Включаем связку MT7603E (2.4 ГГц) + MT7615E (5 ГГц) и WPA3/OWE (определяет SAE_BN)
         sed -i 's/CONFIG_FIRST_IF_MT7615E=y/# CONFIG_FIRST_IF_MT7615E is not set\nCONFIG_FIRST_IF_MT7603E=y/g' "$KCFG"
         sed -n '1585,1664p' trunk/configs/boards/MI-R3G/kernel-4.4.x.config >> "$KCFG"
-        
-        # Включаем WPA3/OWE в MT7603E, чтобы определился тип SAE_BN в owe_cmm.h
         sed -i 's/# CONFIG_MT7603E_WPA3_SUPPORT is not set/CONFIG_MT7603E_WPA3_SUPPORT=y/g' "$KCFG"
         sed -i 's/# CONFIG_MT7603E_OWE_SUPPORT is not set/CONFIG_MT7603E_OWE_SUPPORT=y/g' "$KCFG"
         
@@ -75,8 +76,8 @@ jobs:
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_ARIA_WEB_CONTROL=y/CONFIG_FIRMWARE_INCLUDE_ARIA_WEB_CONTROL=n/g' "$CFG"
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_TCPDUMP=y/CONFIG_FIRMWARE_INCLUDE_TCPDUMP=n/g' "$CFG"
         
-        # 6. Собираем на тулчейне uClibc
-        make NETGEAR-BZV TOOLCHAIN=mipsel-linux-uclibc 2>&1 | tee /tmp/build.log
+        # 6. Запускаем сборку
+        make NETGEAR-BZV TOOLCHAIN=mipsel-linux-musl 2>&1 | tee /tmp/build.log
         if [ ${PIPESTATUS} -ne 0 ]; then
           echo "=== ТОЧНАЯ ПРИЧИНА ОШИБКИ СБОРКИ ==="
           grep -n -C 5 "error:" /tmp/build.log | tail -n 40 || true
@@ -86,5 +87,5 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Padavan_4_4_SmartBox_WiFi_SMB_uClibc
+        name: Padavan_4_4_SmartBox_WiFi_SMB
         path: padavan-4.4/trunk/images/*.trx
