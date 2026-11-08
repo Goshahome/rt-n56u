@@ -19,11 +19,6 @@ jobs:
         BASE="https://github.com"
         git clone "${BASE}/LiuTangLei/tailscale.git" tailscale-awg
         cd tailscale-awg
-        echo "=== ВЕТКИ И ТЕГИ РЕПОЗИТОРИЯ ==="
-        git branch -a
-        git tag -l | tail -n 20
-        
-        # Ищем ветку или тег, где есть код AmneziaWG (awg)
         AWG_REF=$(git branch -r | grep -iE "awg|amnezia|1\.104" | head -n 1 | tr -d ' ' || true)
         if [ -z "$AWG_REF" ]; then
           AWG_REF=$(git tag -l | grep -iE "awg|amnezia|1\.104" | tail -n 1 || true)
@@ -32,9 +27,7 @@ jobs:
           echo "Переключаемся на найденную ветку/тег с AmneziaWG: $AWG_REF"
           git checkout "$AWG_REF"
         fi
-        
-        # Проверяем наличие подкоманды awg в исходном коде CLI
-        grep -rn '"awg"' cmd/tailscale/ || { echo "ОШИБКА: код awg не найден в текущей ветке!"; exit 1; }
+        grep -rn '"awg"' cmd/tailscale/
 
     - name: Build static mipsle softfloat binaries (NO UPX)
       working-directory: tailscale-awg
@@ -45,8 +38,8 @@ jobs:
         GOMIPS: softfloat
       run: |
         mkdir -p ../out
-        go build -trimpath -ldflags="-s -w -X ://tailscale.com -X ://tailscale.com" -o ../out/tailscaled ./cmd/tailscaled
-        go build -trimpath -ldflags="-s -w -X ://tailscale.com -X ://tailscale.com" -o ../out/tailscale ./cmd/tailscale
+        go build -trimpath -ldflags="-s -w" -o ../out/tailscaled ./cmd/tailscaled
+        go build -trimpath -ldflags="-s -w" -o ../out/tailscale ./cmd/tailscale
         ls -lh ../out/
 
     - name: Upload Tailscale AWG Binaries
