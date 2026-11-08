@@ -60,13 +60,14 @@ jobs:
         KCFG="trunk/configs/boards/NETGEAR-BZV/kernel-4.4.x.config"
         DTS="trunk/linux-4.4.x/arch/mips/boot/dts/ralink/netgear-bzv.dts"
         
-        # 0. Скачиваем libusb-1.0.23 с зеркала tinycorelinux; если недоступно — отключаем libusb-1.0
+        # 0. Скачиваем исходники с официальных зеркал (обход 504 на GitHub Releases)
         mkdir -p trunk/download
-        if ! curl -fSL --retry 3 "http://tinycorelinux.net/11.x/x86/tcz/src/libusb/libusb-1.0.23.tar.bz2" -o trunk/download/libusb-1.0.23.tar.bz2; then
+        if ! curl -fSL --retry 3 "http://tinycorelinux.net" -o trunk/download/libusb-1.0.23.tar.bz2; then
           rm -f trunk/download/libusb-1.0.23.tar.bz2
           sed -i 's/libusb-1.0//g' trunk/libs/Makefile
           sed -i 's/CONFIG_FIRMWARE_ENABLE_USB_MODEM=y/CONFIG_FIRMWARE_ENABLE_USB_MODEM=n/g' "$CFG"
         fi
+        curl -fSL --retry 5 "https://curl.se" -o trunk/download/curl-8.4.0.tar.xz
         
         # 1. Исправляем объём ОЗУ под Smart Box Turbo+ (128 МБ)
         sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$CFG"
