@@ -8,155 +8,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Padavan 4.4
-      run: |
-        BASE="https://github.com"
-        git clone --depth=1 "${BASE}/tsl0922/padavan-4.4.git" padavan-4.4
-
-    - name: Setup Go and Node
-      uses: actions/setup-go@v4
+    - name: Setup Go 1.24
+      uses: actions/setup-go@v5
       with:
-        go-version: '1.20'
+        go-version: '1.24'
         cache: false
 
-    - name: Setup Node
-      uses: actions/setup-node@v3
-      with:
-        node-version: 18
+    - name: Clone LiuTangLei/tailscale (AmneziaWG + QUIC)
+      run: |
+        BASE="https://github.com"
+        git clone --depth=1 "${BASE}/LiuTangLei/tailscale.git" tailscale-awg
 
-    - name: Prepare Environment
+    - name: Build static mipsle softfloat binaries (NO UPX)
+      working-directory: tailscale-awg
       env:
-        DEBIAN_FRONTEND: noninteractive
+        CGO_ENABLED: '0'
+        GOOS: linux
+        GOARCH: mipsle
+        GOMIPS: softfloat
       run: |
-        sudo apt-get update
-        sudo apt-get -y install libtool-bin libltdl-dev gperf python3-docutils autopoint gettext ccache
+        mkdir -p ../out
+        VERSION=$(git describe --tags --always 2>/dev/null || echo "v1.104.4-awg")
+        echo "Building version: $VERSION"
+        go build -trimpath -ldflags="-s -w -X ://tailscale.com -X ://tailscale.com" -o ../out/tailscaled ./cmd/tailscaled
+        go build -trimpath -ldflags="-s -w -X ://tailscale.com -X ://tailscale.com" -o ../out/tailscale ./cmd/tailscale
+        ls -lh ../out/
 
-    - name: Restore Toolchain Cache
-      id: cache-tc
-      uses: actions/cache/restore@v4
-      with:
-        path: padavan-4.4/toolchain/out
-        key: padavan-44-musl-tc-v2
-
-    - name: Download Toolchain with Retries
-      if: steps.cache-tc.outputs.cache-hit != 'true'
-      working-directory: padavan-4.4
-      run: |
-        for i in 1 2 3 4 5; do
-          echo "Попытка скачивания тулчейна №$i..."
-          mkdir -p toolchain/out
-          if make -C toolchain download CT_TARGET=mipsel-linux-musl; then
-            echo "Тулчейн успешно скачан!"
-            exit 0
-          fi
-          rm -rf toolchain/out
-          sleep 10
-        done
-        exit 1
-
-    - name: Save Toolchain Cache
-      if: steps.cache-tc.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: padavan-4.4/toolchain/out
-        key: padavan-44-musl-tc-v2
-
-    - name: Configure and Build SmartBox 4.4 (WiFi 2.4+5G, 64KB Page, SMBD, 128MB)
-      working-directory: padavan-4.4
-      run: |
-        CFG="trunk/configs/templates/NETGEAR-BZV.config"
-        KCFG="trunk/configs/boards/NETGEAR-BZV/kernel-4.4.x.config"
-        DTS="trunk/linux-4.4.x/arch/mips/boot/dts/ralink/netgear-bzv.dts"
-        L1="trunk/configs/boards/NETGEAR-BZV/l1profile.dat"
-        BH="trunk/configs/boards/NETGEAR-BZV/board.h"
-        BM="trunk/configs/boards/NETGEAR-BZV/board.mk"
-        
-        # 0. Скачиваем libusb-1.0.23 и curl-8.4.0 с проверенных зеркал
-        mkdir -p trunk/download
-        TC_BASE="http://tinycorelinux.net"
-        curl -fSL --retry 5 "${TC_BASE}/11.x/x86/tcz/src/libusb/libusb-1.0.23.tar.bz2" -o trunk/download/libusb-1.0.23.tar.bz2
-        CURL_BASE="https://curl.se"
-        curl -fSL --retry 5 "${CURL_BASE}/download/curl-8.4.0.tar.xz" -o trunk/download/curl-8.4.0.tar.xz
-        
-        # 1. Исправляем объём ОЗУ под Smart Box Turbo+ (128 МБ вместо 256 МБ)
-        sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$CFG"
-        sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$BM"
-        
-        # 2. Переключаем размер страницы памяти ядра на 64KB (выравнивание 0x10000 из заголовка tailscaled)
-        sed -i 's/CONFIG_PAGE_SIZE_4KB=y/# CONFIG_PAGE_SIZE_4KB is not set/g' "$KCFG"
-        sed -i 's/# CONFIG_PAGE_SIZE_64KB is not set/CONFIG_PAGE_SIZE_64KB=y/g' "$KCFG"
-        
-        # 3. Направляем раздел калибровок Wi-Fi Factory на смещение 0x100000
-        sed -i 's/label = "SC_PART";/label = "Factory";/g' "$DTS"
-        sed -i 's/label = "Factory";/label = "Factory_orig";/' "$DTS"
-        sed -i '0,/label = "Factory_orig";/{s/label = "Factory_orig";/label = "Factory";/}' "$DTS"
-        
-        # 4. Включаем связку MT7603E (2.4 ГГц) + MT7615E (5 ГГц) и проверенные флаги WPA3/OWE
-        sed -i 's/CONFIG_FIRST_IF_MT7615E=y/# CONFIG_FIRST_IF_MT7615E is not set\nCONFIG_FIRST_IF_MT7603E=y/g' "$KCFG"
-        sed -n '1585,1664p' trunk/configs/boards/MI-R3G/kernel-4.4.x.config >> "$KCFG"
-        sed -i 's/# CONFIG_MT7603E_WPA3_SUPPORT is not set/CONFIG_MT7603E_WPA3_SUPPORT=y/g' "$KCFG"
-        sed -i 's/# CONFIG_MT7603E_OWE_SUPPORT is not set/CONFIG_MT7603E_OWE_SUPPORT=y/g' "$KCFG"
-        
-        sed -i 's/BOARD_NUM_ANT_5G_TX\s*4/BOARD_NUM_ANT_5G_TX 2/g' "$BH"
-        sed -i 's/BOARD_NUM_ANT_5G_RX\s*4/BOARD_NUM_ANT_5G_RX 2/g' "$BH"
-        sed -i 's/BOARD_NUM_ANT_2G_TX\s*4/BOARD_NUM_ANT_2G_TX 2/g' "$BH"
-        sed -i 's/BOARD_NUM_ANT_2G_RX\s*4/BOARD_NUM_ANT_2G_RX 2/g' "$BH"
-        
-        cat << 'EOF' > "$L1"
-        Default
-        INDEX0=MT7603
-        INDEX0_profile_path=/etc/Wireless/RT2860/RT2860AP.dat
-        INDEX0_EEPROM_offset=0x0
-        INDEX0_EEPROM_size=0x400
-        INDEX0_EEPROM_name=e2p
-        INDEX0_main_ifname=ra0
-        INDEX0_ext_ifname=ra
-        INDEX0_wds_ifname=wds
-        INDEX0_apcli_ifname=apcli
-        INDEX1=MT7615
-        INDEX1_profile_path=/etc/Wireless/iNIC/iNIC_ap.dat
-        INDEX1_EEPROM_offset=0x8000
-        INDEX1_EEPROM_size=0x8000
-        INDEX1_EEPROM_name=e2p
-        INDEX1_main_ifname=rai0
-        INDEX1_ext_ifname=rai
-        INDEX1_wds_ifname=wdsi
-        INDEX1_apcli_ifname=apclii
-        INDEX1_single_sku_path=/etc_ro/Wireless/SingleSKU_mt7615e-sku.dat
-        INDEX1_bf_sku_path=/etc_ro/Wireless/SingleSKU_mt7615e-sku-bf.dat
-        EOF
-        
-        # 5. Убираем -Werror во всех файлах драйверов Wi-Fi и ядра 4.4
-        find trunk/linux-4.4.x/drivers/net/wireless/mediatek -type f -exec sed -i 's/-Werror/-Wno-error/g' {} +
-        sed -i 's/-Werror=misleading-indentation/-Wno-misleading-indentation/g' trunk/linux-4.4.x/Makefile
-        
-        # 6. Включаем русский язык и Samba (SMBD), отключаем остальные лишние сервисы
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_LANG_CN=y/#CONFIG_FIRMWARE_INCLUDE_LANG_CN=y/g' "$CFG"
-        sed -i 's/#CONFIG_FIRMWARE_INCLUDE_LANG_RU=y/CONFIG_FIRMWARE_INCLUDE_LANG_RU=y/g' "$CFG"
-        sed -i 's/#CONFIG_FIRMWARE_INCLUDE_SMBD=y/CONFIG_FIRMWARE_INCLUDE_SMBD=y/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_SMBD=n/CONFIG_FIRMWARE_INCLUDE_SMBD=y/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSH=y/CONFIG_FIRMWARE_INCLUDE_OPENSSH=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_DROPBEAR=n/CONFIG_FIRMWARE_INCLUDE_DROPBEAR=y/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENVPN=y/CONFIG_FIRMWARE_INCLUDE_OPENVPN=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_XUPNPD=y/CONFIG_FIRMWARE_INCLUDE_XUPNPD=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_HTOP=y/CONFIG_FIRMWARE_INCLUDE_HTOP=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_IPERF3=y/CONFIG_FIRMWARE_INCLUDE_IPERF3=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_WIREGUARD=y/CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_PARTED=y/CONFIG_FIRMWARE_INCLUDE_PARTED=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_ARIA=y/CONFIG_FIRMWARE_INCLUDE_ARIA=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_ARIA_WEB_CONTROL=y/CONFIG_FIRMWARE_INCLUDE_ARIA_WEB_CONTROL=n/g' "$CFG"
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_TCPDUMP=y/CONFIG_FIRMWARE_INCLUDE_TCPDUMP=n/g' "$CFG"
-        
-        # 7. Запускаем сборку
-        make NETGEAR-BZV TOOLCHAIN=mipsel-linux-musl 2>&1 | tee /tmp/build.log
-        if [ ${PIPESTATUS} -ne 0 ]; then
-          echo "=== ТОЧНАЯ ПРИЧИНА ОШИБКИ СБОРКИ ==="
-          grep -n -C 5 "error:" /tmp/build.log | tail -n 40 || true
-          exit 1
-        fi
-
-    - name: Upload Artifact
+    - name: Upload Tailscale AWG Binaries
       uses: actions/upload-artifact@v4
       with:
-        name: Padavan_4_4_SmartBox_Final_64KB_WiFi
-        path: padavan-4.4/trunk/images/*.trx
+        name: tailscale_awg_mipsle_no_upx
+        path: out/*
