@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Setup Go 1.24
+    - name: Setup Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.24'
@@ -28,10 +28,8 @@ jobs:
         GOMIPS: softfloat
       run: |
         mkdir -p ../out
-        VERSION=$(git describe --tags --always 2>/dev/null || echo "v1.104.4-awg")
-        echo "Building version: $VERSION"
-        go build -trimpath -ldflags="-s -w -X ://tailscale.com -X ://tailscale.com" -o ../out/tailscaled ./cmd/tailscaled
-        go build -trimpath -ldflags="-s -w -X ://tailscale.com -X ://tailscale.com" -o ../out/tailscale ./cmd/tailscale
+        go build -trimpath -ldflags="-s -w" -o ../out/tailscaled ./cmd/tailscaled
+        go build -trimpath -ldflags="-s -w" -o ../out/tailscale ./cmd/tailscale
         ls -lh ../out/
 
     - name: Upload Tailscale AWG Binaries
