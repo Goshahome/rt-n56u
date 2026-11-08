@@ -94,7 +94,7 @@ jobs:
         # 4. Включаем MT7603E + MT7615E без расширения столбцов OWE (чистый список поиска сетей Wi-Fi)
         sed -i 's/CONFIG_FIRST_IF_MT7615E=y/# CONFIG_FIRST_IF_MT7615E is not set\nCONFIG_FIRST_IF_MT7603E=y/g' "$KCFG"
         sed -n '1585,1664p' trunk/configs/boards/MI-R3G/kernel-4.4.x.config >> "$KCFG"
-        sed -i '1i typedef void SAE_BN;' trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x3/include/owe_cmm.h
+        sed -i '1i typedef void SAE_BN;\n#define fCLIENT_STATUS_USE_SHA256 0' trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x3/include/owe_cmm.h
         
         sed -i 's/BOARD_NUM_ANT_5G_TX\s*4/BOARD_NUM_ANT_5G_TX 2/g' "$BH"
         sed -i 's/BOARD_NUM_ANT_5G_RX\s*4/BOARD_NUM_ANT_5G_RX 2/g' "$BH"
