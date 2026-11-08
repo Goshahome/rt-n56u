@@ -59,11 +59,10 @@ jobs:
         CFG="trunk/configs/templates/NETGEAR-BZV.config"
         KCFG="trunk/configs/boards/NETGEAR-BZV/kernel-4.4.x.config"
         DTS="trunk/linux-4.4.x/arch/mips/boot/dts/ralink/netgear-bzv.dts"
-        BASE="https://github.com"
         
-        # 0. Заранее скачиваем libusb-1.0.23 с GitHub Releases
-        mkdir -p trunk/download
-        curl -fSL --retry 5 "${BASE}/libusb/libusb/releases/download/v1.0.23/libusb-1.0.23.tar.bz2" -o trunk/download/libusb-1.0.23.tar.bz2
+        # 0. Исключаем проблемный при скачивании libusb-1.0 из сборки библиотек
+        sed -i 's/libusb-1.0//g' trunk/libs/Makefile
+        sed -i 's/CONFIG_FIRMWARE_ENABLE_USB_MODEM=y/CONFIG_FIRMWARE_ENABLE_USB_MODEM=n/g' "$CFG"
         
         # 1. Исправляем объём ОЗУ под Smart Box Turbo+ (128 МБ)
         sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$CFG"
