@@ -37,9 +37,12 @@ jobs:
         CFG="trunk/configs/templates/NETGEAR-BZV.config"
         KCFG="trunk/configs/boards/NETGEAR-BZV/kernel-4.4.x.config"
         DTS="trunk/linux-4.4.x/arch/mips/boot/dts/ralink/netgear-bzv.dts"
+        BASE="https://github.com"
         
-        # 0. Добавляем ретраи в curl при скачивании тулчейна (защита от 504)
+        # 0. Добавляем ретраи в curl и заранее скачиваем libusb-1.0.23 с GitHub Releases
         sed -i 's/curl -fSL/curl --retry 5 --retry-delay 5 -fSL/g' toolchain/Makefile
+        mkdir -p trunk/download
+        curl -fSL --retry 5 "${BASE}/libusb/libusb/releases/download/v1.0.23/libusb-1.0.23.tar.bz2" -o trunk/download/libusb-1.0.23.tar.bz2
         
         # 1. Исправляем объём ОЗУ под Smart Box Turbo+ (128 МБ)
         sed -i 's/CONFIG_BOARD_RAM_SIZE=256/CONFIG_BOARD_RAM_SIZE=128/g' "$CFG"
