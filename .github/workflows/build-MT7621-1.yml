@@ -33,10 +33,10 @@ jobs:
 
     - name: Restore Toolchain Cache
       id: cache-tc
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: padavan-4.4/toolchain/out
-        key: padavan-44-musl-tc-v1
+        key: padavan-44-musl-tc-v2
 
     - name: Download Toolchain with Retries
       if: steps.cache-tc.outputs.cache-hit != 'true'
@@ -44,14 +44,22 @@ jobs:
       run: |
         for i in 1 2 3 4 5; do
           echo "Попытка скачивания тулчейна №$i..."
+          mkdir -p toolchain/out
           if make -C toolchain download CT_TARGET=mipsel-linux-musl; then
             echo "Тулчейн успешно скачан!"
             exit 0
           fi
-          rm -rf toolchain/out/*
+          rm -rf toolchain/out
           sleep 10
         done
         exit 1
+
+    - name: Save Toolchain Cache
+      if: steps.cache-tc.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: padavan-4.4/toolchain/out
+        key: padavan-44-musl-tc-v2
 
     - name: Configure and Build SmartBox 4.4 (MT7603E + MT7615E, SMBD, 128MB, 0x200000)
       working-directory: padavan-4.4
